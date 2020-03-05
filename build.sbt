@@ -2,8 +2,13 @@ name := "chain-replication-scala"
 
 version := "0.1"
 
-scalaVersion := "2.12.4"
+scalaVersion := "2.13.1"
 
-libraryDependencies += "com.typesafe.akka" %% "akka-actor-typed" % "2.6.3"
-libraryDependencies += "com.typesafe.akka" %% "akka-remote" % "2.1.4"
-//libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.1.3" % Runtime
+lazy val akkaVersion = "2.6.3"
+
+libraryDependencies ++= Seq(
+  "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion,
+  "ch.qos.logback" % "logback-classic" % "1.2.3",
+  // "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion % Test,
+  // "org.scalatest" %% "scalatest" % "3.1.0" % Test
+)
