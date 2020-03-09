@@ -9,10 +9,12 @@ import com.typesafe.config.ConfigFactory
 
 object ServerInitializer {
 
+  final val MASTER_SERVICE_PATH: String = "akka://CRS@127.0.0.1:3000/user/CRS"
+
   def apply(): Behavior[NotUsed] =
     Behaviors.setup { context => {
       val server = context.spawn(Server(), "CRS")
-      server ! InitServer()
+      server ! InitServer(MASTER_SERVICE_PATH)
 
       Behaviors.receiveSignal {
         case (_, Terminated(_)) =>
