@@ -9,24 +9,25 @@ import com.typesafe.config.ConfigFactory
 
 object ClientInitializer {
 
-  final val MASTER_SERVICE_PATH: String = "akka://CRS@127.0.0.1:3000/user/CRS"
+    final val MASTER_SERVICE_PATH: String = "akka://CRS@127.0.0.1:3000/user/CRS"
 
-  def apply(): Behavior[NotUsed] =
-    Behaviors.setup { context => {
-      val client = context.spawn(Client(), "CRS")
-      client ! InitClient(MASTER_SERVICE_PATH)
+    def apply(): Behavior[NotUsed] =
+        Behaviors.setup {
+            context => {
+                val client = context.spawn(Client(), "CRS")
+                client ! InitClient(MASTER_SERVICE_PATH)
 
-      Behaviors.receiveSignal {
-        case (_, Terminated(_)) =>
-          context.log.info("Stopping the system")
-          Behaviors.stopped
-      }
+                Behaviors.receiveSignal {
+                    case (_, Terminated(_)) =>
+                        context.log.info("Stopping the system")
+                        Behaviors.stopped
+                }
+            }
+        }
+
+    def main(args: Array[String]): Unit = {
+        val config = ConfigFactory.load()
+        ActorSystem(ClientInitializer(), "CRS", config.getConfig("client").withFallback(config))
     }
-    }
-
-  def main(args: Array[String]): Unit = {
-    val config = ConfigFactory.load()
-    ActorSystem(ClientInitializer(), "CRS", config.getConfig("client").withFallback(config))
-  }
 
 }
