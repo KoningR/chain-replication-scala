@@ -11,5 +11,9 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion % Test,
   "org.scalatest" %% "scalatest" % "3.1.0" % Test,
   "com.typesafe.akka" %% "akka-remote" % "2.6.3",
-  "com.typesafe.akka" %% "akka-serialization-jackson" % "2.6.3"
+  "com.typesafe.akka" %% "akka-serialization-jackson" % "2.6.3",
+  "com.lihaoyi" %% "upickle" % "1.0.0"
 )
+
+libraryDependencies += "org.scalactic" %% "scalactic" % "3.1.1"
+libraryDependencies += "org.scalatest" %% "scalatest" % "3.1.1" % "test"
