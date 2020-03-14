@@ -12,7 +12,12 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.1.0" % Test,
   "com.typesafe.akka" %% "akka-remote" % "2.6.3",
   "com.typesafe.akka" %% "akka-serialization-jackson" % "2.6.3",
-  "com.lihaoyi" %% "upickle" % "1.0.0"
+  "com.lihaoyi" %% "upickle" % "1.0.0",
+  "com.typesafe.slick" %% "slick"           % "3.3.2",
+  "com.h2database"      % "h2"              % "1.4.197",
+  "org.slf4j"           % "slf4j-nop"       % "1.6.4",
+  "org.xerial"          % "sqlite-jdbc"     % "3.7.2",
+  "com.typesafe.slick" %% "slick-hikaricp"  % "3.3.2"
 )
 
 libraryDependencies += "org.scalactic" %% "scalactic" % "3.1.1"
