@@ -3,9 +3,10 @@ package actors
 import actors.Client.{ClientReceivable, QueryResponse, UpdateResponse}
 import actors.MasterService.{MasterServiceReceivable, RegisterServer}
 import akka.actor.ActorSelection
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.scaladsl.adapter._
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
+import storage.Storage
 
 object Server {
 
@@ -21,6 +22,7 @@ object Server {
     final case class Update(objId: Int, newObj: String, from: ActorRef[ClientReceivable]) extends ServerReceivable
 
     private var masterService: ActorSelection = _
+    private var storage: Storage = _
 
     def apply(): Behavior[ServerReceivable] = Behaviors.receive {
         (context, message) =>
@@ -34,6 +36,7 @@ object Server {
 
     def initServer(context: ActorContext[ServerReceivable], message: ServerReceivable, remoteMasterServicePath: String): Behavior[ServerReceivable] = {
         masterService = context.toClassic.actorSelection(remoteMasterServicePath)
+        storage = new Storage()
         masterService ! RegisterServer(context.self)
         // TODO: Check if masterService is defined and stop the server if not.
 
