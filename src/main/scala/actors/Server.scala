@@ -52,14 +52,22 @@ object Server {
     }
 
     def query(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
-        from ! QueryResponse(objId, "Apple")
+        val result = storage.query(objId)
+        // TODO: handle errors (None case)
+        result match {
+            case _ => from ! QueryResponse(objId, result.get)
+        }
 
         context.log.info("Server: sent a query response for objId {} = {}.", objId, "Apple")
         Behaviors.same
     }
 
     def update(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, newObj: String, from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
-        from ! UpdateResponse(objId, newObj)
+        val result = storage.update(objId, newObj)
+        // TODO: handle errors (None case)
+        result match {
+            case _ => from ! UpdateResponse(objId, newObj)
+        }
 
         context.log.info("Server: sent a update response for objId {} = {}.", objId, newObj)
         Behaviors.same

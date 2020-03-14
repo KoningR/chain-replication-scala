@@ -1,10 +1,11 @@
 package actors
 
 import actors.MasterService.RequestChainInfo
-import actors.Server.{Query, ServerReceivable, Update}
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import actors.Server.{ServerReceivable, Update}
 import akka.actor.typed.scaladsl.adapter._
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
+import communication.SampleJSON
 
 object Client {
 
@@ -41,7 +42,7 @@ object Client {
         this.head = head
         this.tail = tail
 
-        this.head ! Query(1, context.self)
+        this.head ! Update(1, SampleJSON.simpleObject, context.self)
 
         context.log.info("Client: received a ChainInfoResponse, head: {}, tail: {}", head.path, tail.path)
         Behaviors.same

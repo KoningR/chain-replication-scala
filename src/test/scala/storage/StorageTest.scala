@@ -75,7 +75,7 @@ class StorageTest extends FunSuite {
       case Some(a) =>
         println(a)
         fail()
-      case None => assert(true)
+      case None => succeed
     }
   }
 
