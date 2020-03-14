@@ -17,6 +17,17 @@ object Client {
     private var head: ActorRef[ServerReceivable] = _
     private var tail: ActorRef[ServerReceivable] = _
 
+    def apply(): Behavior[ClientReceivable] = Behaviors.receive {
+        (context, message) => {
+            message match {
+                case InitClient(remoteMasterServicePath) => initClient(context, message, remoteMasterServicePath)
+                case ChainInfoResponse(head, tail) => chainInfoResponse(context, message, head, tail)
+                case QueryResponse(objId, queryResult) => queryResponse(context, message, objId, queryResult)
+                case UpdateResponse(objId, newValue) => updateResponse(context, message, objId, newValue)
+            }
+        }
+    }
+
     def initClient(context: ActorContext[ClientReceivable], message: ClientReceivable, remoteMasterServicePath: String): Behavior[ClientReceivable] = {
         val masterService = context.toClassic.actorSelection(remoteMasterServicePath)
 
@@ -46,16 +57,5 @@ object Client {
     def updateResponse(context: ActorContext[ClientReceivable], message: ClientReceivable, objId: Int, newValue: String): Behavior[ClientReceivable] = {
         context.log.info("Client: received a UpdateResponse for objId {}, new value is {}", objId, newValue)
         Behaviors.same
-    }
-
-    def apply(): Behavior[ClientReceivable] = Behaviors.receive {
-        (context, message) => {
-            message match {
-                case InitClient(remoteMasterServicePath) => initClient(context, message, remoteMasterServicePath)
-                case ChainInfoResponse(head, tail) => chainInfoResponse(context, message, head, tail)
-                case QueryResponse(objId, queryResult) => queryResponse(context, message, objId, queryResult)
-                case UpdateResponse(objId, newValue) => updateResponse(context, message, objId, newValue)
-            }
-        }
     }
 }
