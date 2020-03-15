@@ -11,7 +11,7 @@ class Storage {
 
   var storage: Database = new SQLiteDatabase("database.db")
 
-  def query(objectId: Int, options: Option[List[String]] = None): Option[String] = {
+  def query(objectId: Int, options: Option[List[String]]): Option[String] = {
     // Get entry from storage source.
     val databaseEntry: Option[String] = Await.result(storage.get(objectId), 5 seconds)
 
@@ -40,7 +40,7 @@ class Storage {
     }
   }
 
-  def update(objectId: Int, newValue: String, options: Option[List[String]] = None): Option[String] = {
+  def update(objectId: Int, newValue: String, options: Option[List[String]]): Option[String] = {
     // Parse new object that the client sent.
     val jsonObject = Try(ujson.read(newValue).obj)
 

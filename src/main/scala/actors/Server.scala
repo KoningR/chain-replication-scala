@@ -19,8 +19,8 @@ object Server {
                                       isHead: Boolean,
                                       isTail: Boolean
                                      ) extends ServerReceivable
-    final case class Query(objId: Int, from: ActorRef[ClientReceivable]) extends ServerReceivable
-    final case class Update(objId: Int, newObj: String, from: ActorRef[ClientReceivable]) extends ServerReceivable
+    final case class Query(objId: Int, options: Option[List[String]], from: ActorRef[ClientReceivable]) extends ServerReceivable
+    final case class Update(objId: Int, newObj: String, options: Option[List[String]], from: ActorRef[ClientReceivable]) extends ServerReceivable
 
     private var masterService: ActorSelection = _
     private var storage: Storage = _
@@ -30,8 +30,8 @@ object Server {
             message match {
                 case InitServer(remoteMasterServicePath) => initServer(context, message, remoteMasterServicePath)
                 case RegisteredServer(masterService, previous, next, isHead, isTail) => registeredServer(context, message, masterService, previous, next, isHead, isTail)
-                case Query(objId, from) => query(context, message, objId, from)
-                case Update(objId, newObj, from) => update(context, message, objId, newObj, from)
+                case Query(objId, options, from) => query(context, message, objId, options, from)
+                case Update(objId, newObj, options, from) => update(context, message, objId, newObj, options, from)
             }
     }
 
@@ -52,8 +52,8 @@ object Server {
         Behaviors.same
     }
 
-    def query(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
-        val result = storage.query(objId)
+    def query(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, options: Option[List[String]], from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
+        val result = storage.query(objId, options)
         // TODO: handle errors (None case)
         result match {
             case _ => from ! QueryResponse(objId, result.get)
@@ -63,8 +63,8 @@ object Server {
         Behaviors.same
     }
 
-    def update(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, newObj: String, from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
-        val result = storage.update(objId, newObj)
+    def update(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, newObj: String, options: Option[List[String]], from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
+        val result = storage.update(objId, newObj, options)
         // TODO: handle errors (None case)
         result match {
             case _ => from ! UpdateResponse(objId, newObj)

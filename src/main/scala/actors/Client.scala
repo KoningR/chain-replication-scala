@@ -42,14 +42,14 @@ object Client {
         this.head = head
         this.tail = tail
 
-        this.head ! Update(1, SampleJSON.simpleObject, context.self)
+        this.head ! Update(1, SampleJSON.simpleObject, None, context.self)
 
         context.log.info("Client: received a ChainInfoResponse, head: {}, tail: {}", head.path, tail.path)
         Behaviors.same
     }
 
     def queryResponse(context: ActorContext[ClientReceivable], message: ClientReceivable, objId: Int, queryResult: String): Behavior[ClientReceivable] = {
-        this.head ! Update(1, "New object", context.self)
+        this.head ! Update(1, "New object", None, context.self)
 
         context.log.info("Client: received a QueryResponse for objId {} = {}", objId, queryResult)
         Behaviors.same
