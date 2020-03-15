@@ -9,7 +9,7 @@ import communication.{JsonSerializable, SampleJSON}
 
 object Client {
 
-    sealed trait ClientReceivable
+    sealed trait ClientReceivable extends JsonSerializable
     final case class InitClient(remoteMasterServicePath: String) extends ClientReceivable
     final case class ChainInfoResponse(head: ActorRef[ServerReceivable], tail: ActorRef[ServerReceivable]) extends ClientReceivable
     final case class QueryResponse(objId: Int, queryResult: String) extends ClientReceivable
