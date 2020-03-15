@@ -19,7 +19,7 @@ class StorageTest extends FunSuite {
 
   test("should update object and receive it back successfully") {
     val storage = new Storage()
-    val updateResult = storage.update(1, rawJson)
+    val updateResult = storage.update(1, rawJson, None)
 
     updateResult match {
       case Some(jsonBack) =>
@@ -30,9 +30,9 @@ class StorageTest extends FunSuite {
 
   test("should update object and receive it back successfully after query") {
     val storage = new Storage()
-    storage.update(1, rawJson)
+    storage.update(1, rawJson, None)
 
-    val query = storage.query(1)
+    val query = storage.query(1, None)
 
     query match {
       case Some(jsonBack) =>
@@ -43,7 +43,7 @@ class StorageTest extends FunSuite {
 
   test("should only receive the given field after query") {
     val storage = new Storage()
-    storage.update(1, rawJson)
+    storage.update(1, rawJson, None)
 
     val options = Some(List("name"))
     val query = storage.query(1, options)
@@ -57,8 +57,8 @@ class StorageTest extends FunSuite {
 
   test("should update two objects which are both defined") {
     val storage = new Storage()
-    val updateResult = storage.update(1, rawJson)
-    val updateResult2 = storage.update(2, rawJson)
+    val updateResult = storage.update(1, rawJson, None)
+    val updateResult2 = storage.update(2, rawJson, None)
 
     (updateResult, updateResult2) match {
       case (Some(jsonBack), Some(jsonBack2)) =>
@@ -69,7 +69,7 @@ class StorageTest extends FunSuite {
 
   test("should deny any non object updates") {
     val storage = new Storage()
-    val updatedResult = storage.update(1, listJson)
+    val updatedResult = storage.update(1, listJson, None)
 
     updatedResult match {
       case Some(a) =>
@@ -81,7 +81,7 @@ class StorageTest extends FunSuite {
 
   test("should deny any non valid json updates") {
     val storage = new Storage()
-    val updatedResult = storage.update(1, "{abc; 12}")
+    val updatedResult = storage.update(1, "{abc; 12}", None)
 
     updatedResult match {
       case Some(a) =>
