@@ -6,11 +6,12 @@ import akka.actor.ActorSelection
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
+import communication.JsonSerializable
 import storage.Storage
 
 object Server {
 
-    sealed trait ServerReceivable
+    sealed trait ServerReceivable extends JsonSerializable
     final case class InitServer(remoteMasterServicePath: String) extends ServerReceivable
     final case class RegisteredServer(masterService: ActorRef[MasterServiceReceivable],
                                       previous: ActorRef[ServerReceivable],

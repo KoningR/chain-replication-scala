@@ -5,7 +5,7 @@ import actors.Server.{ServerReceivable, Update}
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
-import communication.SampleJSON
+import communication.{JsonSerializable, SampleJSON}
 
 object Client {
 
