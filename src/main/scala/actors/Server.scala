@@ -18,17 +18,28 @@ object Server {
                                       isTail: Boolean
                                      ) extends ServerReceivable
     final case class Query(objId: Int, from: ActorRef[ClientReceivable]) extends ServerReceivable
-    final case class Update(objId: Int, newObj: String, from: ActorRef[ClientReceivable]) extends ServerReceivable
+    final case class Update(objId: Int, newObj: String, from : ActorRef[ClientReceivable], previous: ActorRef[ServerReceivable]) extends ServerReceivable
+    final case class UpdateAcknowledgement(objId: Int, newObj: String, next: ActorRef[ServerReceivable]) extends ServerReceivable
 
     private var masterService: ActorSelection = _
+    private var inProcess: List[ServerReceivable] = List()
 
     def apply(): Behavior[ServerReceivable] = Behaviors.receive {
         (context, message) =>
             message match {
                 case InitServer(remoteMasterServicePath) => initServer(context, message, remoteMasterServicePath)
                 case RegisteredServer(masterService, previous, next, isHead, isTail) => registeredServer(context, message, masterService, previous, next, isHead, isTail)
-                case Query(objId, from) => query(context, message, objId, from)
-                case Update(objId, newObj, from) => update(context, message, objId, newObj, from)
+                case Query(objId, from) => {
+                    query(context, message, objId, from)
+                }
+                case Update(objId, newObj, from, previous) => {
+                    inProcess = Update(objId, newObj, previous) :: inProcess
+                    update(context, message, objId, newObj, from, previous)
+                }
+                case UpdateAcknowledgement(objId, newObj, next) => {
+                    processAcknowledgement()
+                    Behaviors.same
+                }
             }
     }
 
@@ -55,10 +66,16 @@ object Server {
         Behaviors.same
     }
 
-    def update(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, newObj: String, from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
-        from ! UpdateResponse(objId, newObj)
-
+    def update(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, newObj: String, from :ActorRef[ClientReceivable], previous: ActorRef[ServerReceivable]): Behavior[ServerReceivable] = {
+        // TODO: if this server is the tail, send UpdateReponse to Client
+        previous ! UpdateAcknowledgement(objId, newObj, context.self)
+        
         context.log.info("Server: sent a update response for objId {} = {}.", objId, newObj)
         Behaviors.same
     }
+
+    def processAcknowledgement() : Unit = {
+        // TODO: remove Update from imProcess List.
+    }
+
 }
