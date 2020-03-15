@@ -1,72 +1,82 @@
 package storage
 
-import ujson.Value.Value
+import storage.database.SQLiteDatabase
+
+import scala.concurrent.Await
+import scala.concurrent.duration._
+import scala.language.postfixOps
+import scala.util.{Failure, Success, Try}
 
 class Storage {
 
-  var storage: Map[Int, String] = Map()
+  var storage: Database = new SQLiteDatabase("database.db")
 
   def query(objectId: Int, options: Option[List[String]] = None): Option[String] = {
-    // Get entry from source.
-    val databaseEntry: Option[String] = storage.get(objectId)
+    // Get entry from storage source.
+    val databaseEntry: Option[String] = Await.result(storage.get(objectId), 5 seconds)
 
     databaseEntry match {
-      case Some(jsonStringAllFields) =>
-        // Read the string entry into JSON.
-        val json: Value = ujson.read(jsonStringAllFields).obj
-        val jsonObject = json.obj
-
-        // Stop if the JSON is not an object.
-        if (!json.isInstanceOf[ujson.Obj]) {
-          return None
-        }
-
-        // Apply options (fields) to return.
-        options match {
-          case Some(options) =>
-            // Fields given, return only requested fields.
-            // TODO: make this more efficient
-            val filteredObj = jsonObject.filter(x => options.contains(x._1))
-            val jsonString = ujson.write(filteredObj)
-            Some(jsonString)
-          case None =>
-            // No options given, return all fields.
-            val jsonString = ujson.write(jsonObject)
-            Some(jsonString)
-        }
       case None => None
+      case Some(jsonString) =>
+        // Parse to object (fails if it is e.g. a list or invalid)
+        val jsonObject = Try(ujson.read(jsonString).obj)
+
+        jsonObject match {
+          case Failure(_) => None
+          case Success(jsonObject) =>
+            options match {
+              case Some(options) =>
+                // Option given, return only requested fields.
+                val filteredObj = jsonObject.filter(x => options.contains(x._1))
+                val jsonString = ujson.write(filteredObj)
+                Some(jsonString)
+              case None =>
+                // No options given, return all fields.
+                val jsonString = ujson.write(jsonObject)
+                Some(jsonString)
+            }
+        }
+
     }
   }
 
   def update(objectId: Int, newValue: String, options: Option[List[String]] = None): Option[String] = {
+    // Parse new object that the client sent.
+    val jsonObject = Try(ujson.read(newValue).obj)
 
-    // Get entry from source.
-    val databaseEntry = storage.get(objectId)
+    jsonObject match {
+      case Failure(_) => None
+      case Success(jsonObject) =>
+        println("Running UPDATE:")
+        println(jsonObject)
+        // Get entry from storage source.
+        val databaseEntry = Await.result(storage.get(objectId), 5 seconds)
 
-    // Parse object that the client sent.
-    val jsonObject = ujson.read(newValue)
+        databaseEntry match {
+          case None =>
+            // No object present, create in database.
+            // Parse the json object to string again (formatting reasons).
+            val jsonStringUpdated = ujson.write(jsonObject)
+            val result = Await.result(storage.upsert(objectId, jsonStringUpdated), 5 seconds)
 
-    // Stop if the JSON is not an object.
-    if (!jsonObject.isInstanceOf[ujson.Obj]) {
-      return None
+            result match {
+              case Some(jsonStringUpdated) => Some(jsonStringUpdated)
+              case None => None
+            }
+          case Some(previousValue) =>
+            // Object present, update/merge objects based on options & previous value.
+            // TODO: interpret options and non-deterministic update, current implementation = overwrite.
+            // Parse the json object to string again (formatting reasons).
+            val jsonStringUpdated = ujson.write(jsonObject)
+            val result = Await.result(storage.upsert(objectId, jsonStringUpdated), 5 seconds)
+
+            result match {
+              case Some(jsonStringUpdated) => Some(jsonStringUpdated)
+              case None => None
+            }
+        }
     }
 
-    databaseEntry match {
-      case Some(previousValue) =>
-        // Object present, update.
-        // TODO: interpret options and non-deterministic update
-        val jsonStringUpdated = ujson.write(jsonObject)
-        storage = storage.updated(objectId, jsonStringUpdated)
 
-        Some(jsonStringUpdated)
-      case None =>
-        // No object present, create.
-        val jsonStringUpdated = ujson.write(jsonObject)
-        storage = storage.updated(objectId, jsonStringUpdated)
-
-        Some(jsonStringUpdated)
-    }
   }
-
-
 }

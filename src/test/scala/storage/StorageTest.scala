@@ -79,5 +79,17 @@ class StorageTest extends FunSuite {
     }
   }
 
+  test("should deny any non valid json updates") {
+    val storage = new Storage()
+    val updatedResult = storage.update(1, "{abc; 12}")
+
+    updatedResult match {
+      case Some(a) =>
+        println(a)
+        fail()
+      case None => succeed
+    }
+  }
+
 }
 
