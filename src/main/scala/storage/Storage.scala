@@ -7,9 +7,13 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
-class Storage {
+/**
+ * Storage class, handles database and JSON logic.
+ * @param identifier will be used as the name for the file
+ */
+class Storage(val identifier: String) {
 
-  var storage: Database = new SQLiteDatabase("database.db")
+  var storage: Database = new SQLiteDatabase(identifier)
 
   def query(objectId: Int, options: Option[List[String]]): Option[String] = {
     // Get entry from storage source.

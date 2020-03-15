@@ -9,8 +9,10 @@ import scala.language.postfixOps
 
 class SQLiteDatabaseTest extends FunSuite {
 
+  val fileName = "test"
+
   test("should setup and return select statement that is empty") {
-    val storageSqlite: SQLiteDatabase = new SQLiteDatabase("database_test.db")
+    val storageSqlite: SQLiteDatabase = new SQLiteDatabase(fileName)
     val result = Await.result(storageSqlite.get(999), 20 seconds)
 
     result match {

@@ -1,5 +1,6 @@
 package storage.database
 
+import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import slick.jdbc.SQLiteProfile.api._
 import storage.Database
 
@@ -17,7 +18,16 @@ class Objects(tag: Tag) extends Table[(Int, String)](tag, "OBJECTS") {
 class SQLiteDatabase(fileName: String) extends Database {
   // Initializations of database and table
   val objects = TableQuery[Objects]
-  val db = Database.forConfig(fileName)
+
+  // The following code is to set the filename in the config.
+  val config: Config = ConfigFactory.load()
+  val customConfig: Config = config.withValue(
+    "sqlite.db.url",
+    ConfigValueFactory.fromAnyRef(s"jdbc:sqlite:database_$fileName.db")
+  )
+
+  // Initialize database.
+  val db = Database.forConfig("sqlite.db", customConfig)
 
   val setup = DBIO.seq(
     objects.schema.createIfNotExists
