@@ -4,10 +4,11 @@ import actors.Client.{ChainInfoResponse, ClientReceivable}
 import actors.Server.{RegisteredServer, ServerReceivable}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
+import communication.JsonSerializable
 
 object MasterService {
 
-    sealed trait MasterServiceReceivable
+    sealed trait MasterServiceReceivable extends JsonSerializable
     final case class InitMasterService() extends MasterServiceReceivable
     final case class RequestChainInfo(replyTo: ActorRef[ClientReceivable]) extends MasterServiceReceivable
     final case class RegisterServer(replyTo: ActorRef[ServerReceivable]) extends MasterServiceReceivable
