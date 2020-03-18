@@ -33,7 +33,7 @@ object Server {
                     query(context, message, objId, from)
                 }
                 case Update(objId, newObj, from, previous) => {
-                    inProcess = Update(objId, newObj, previous) :: inProcess
+                    inProcess = Update(objId, newObj, from, previous) :: inProcess
                     update(context, message, objId, newObj, from, previous)
                 }
                 case UpdateAcknowledgement(objId, newObj, next) => {
