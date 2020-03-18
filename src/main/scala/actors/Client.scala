@@ -1,7 +1,7 @@
 package actors
 
 import actors.MasterService.RequestChainInfo
-import actors.Server.{ServerReceivable, Update}
+import actors.Server.{Query, ServerReceivable, Update}
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
@@ -14,6 +14,8 @@ object Client {
     final case class ChainInfoResponse(head: ActorRef[ServerReceivable], tail: ActorRef[ServerReceivable]) extends ClientReceivable
     final case class QueryResponse(objId: Int, queryResult: String) extends ClientReceivable
     final case class UpdateResponse(objId: Int, newValue: String) extends ClientReceivable
+    final case class CallQuery(objId: Int, options: Option[List[String]]) extends ClientReceivable
+    final case class CallUpdate(objId: Int, newObj: String, options: Option[List[String]]) extends ClientReceivable
 
     private var head: ActorRef[ServerReceivable] = _
     private var tail: ActorRef[ServerReceivable] = _
@@ -25,6 +27,8 @@ object Client {
                 case ChainInfoResponse(head, tail) => chainInfoResponse(context, message, head, tail)
                 case QueryResponse(objId, queryResult) => queryResponse(context, message, objId, queryResult)
                 case UpdateResponse(objId, newValue) => updateResponse(context, message, objId, newValue)
+                case CallQuery(objId, options) => callQuery(context, message, objId, options)
+                case CallUpdate(objId, newObj, options) => callUpdate(context, message, objId, newObj, options)
             }
         }
     }
@@ -57,6 +61,18 @@ object Client {
 
     def updateResponse(context: ActorContext[ClientReceivable], message: ClientReceivable, objId: Int, newValue: String): Behavior[ClientReceivable] = {
         context.log.info("Client: received a UpdateResponse for objId {}, new value is {}", objId, newValue)
+        Behaviors.same
+    }
+
+    def callQuery(context: ActorContext[ClientReceivable], message: ClientReceivable,
+                  objId: Int, options: Option[List[String]]): Behavior[ClientReceivable] = {
+        this.head ! Query(objId, options, context.self)
+        Behaviors.same
+    }
+
+    def callUpdate(context: ActorContext[ClientReceivable], message: ClientReceivable,
+                   objId: Int, newObj: String, options: Option[List[String]]): Behavior[ClientReceivable] = {
+        this.tail ! Update(objId, newObj, options, context.self)
         Behaviors.same
     }
 }
