@@ -37,12 +37,12 @@ object Server {
 
     def initServer(context: ActorContext[ServerReceivable], message: ServerReceivable, remoteMasterServicePath: String): Behavior[ServerReceivable] = {
         masterService = context.toClassic.actorSelection(remoteMasterServicePath)
+        // TODO: Check if masterService is defined and stop the server if not.
 
         val fileName = context.self.path.name
         storage = new Storage(fileName)
 
         masterService ! RegisterServer(context.self)
-        // TODO: Check if masterService is defined and stop the server if not.
 
         context.log.info("Server: registering server at master service.")
         Behaviors.same
