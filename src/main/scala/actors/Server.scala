@@ -13,25 +13,31 @@ object Server {
 
     sealed trait ServerReceivable extends JsonSerializable
     final case class InitServer(remoteMasterServicePath: String) extends ServerReceivable
-    final case class RegisteredServer(masterService: ActorRef[MasterServiceReceivable],
-                                      previous: ActorRef[ServerReceivable],
-                                      next: ActorRef[ServerReceivable],
-                                      isHead: Boolean,
-                                      isTail: Boolean
-                                     ) extends ServerReceivable
     final case class Query(objId: Int, options: Option[List[String]], from: ActorRef[ClientReceivable]) extends ServerReceivable
     final case class Update(objId: Int, newObj: String, options: Option[List[String]], from: ActorRef[ClientReceivable]) extends ServerReceivable
+    final case class RegisteredServer(masterService: ActorRef[MasterServiceReceivable]) extends ServerReceivable
+    final case class ChainPositionUpdate(isHead: Boolean,
+                                         isTail: Boolean,
+                                         previous: ActorRef[ServerReceivable],
+                                         next: ActorRef[ServerReceivable]
+                                        ) extends ServerReceivable
 
     private var masterService: ActorSelection = _
     private var storage: Storage = _
+
+    private var isHead: Boolean = _
+    private var isTail: Boolean = _
+    private var previous: ActorRef[ServerReceivable] = _
+    private var next: ActorRef[ServerReceivable] = _
 
     def apply(): Behavior[ServerReceivable] = Behaviors.receive {
         (context, message) =>
             message match {
                 case InitServer(remoteMasterServicePath) => initServer(context, message, remoteMasterServicePath)
-                case RegisteredServer(masterService, previous, next, isHead, isTail) => registeredServer(context, message, masterService, previous, next, isHead, isTail)
                 case Query(objId, options, from) => query(context, message, objId, options, from)
                 case Update(objId, newObj, options, from) => update(context, message, objId, newObj, options, from)
+                case RegisteredServer(masterService) => registeredServer(context, message, masterService)
+                case ChainPositionUpdate(isHead, isTail, previous, next) => chainPositionUpdate(context, message, isHead, isTail, previous, next)
             }
     }
 
@@ -48,15 +54,29 @@ object Server {
         Behaviors.same
     }
 
-    def registeredServer(context: ActorContext[ServerReceivable], message: ServerReceivable, masterService: ActorRef[MasterServiceReceivable],
-                         previous: ActorRef[ServerReceivable], next: ActorRef[ServerReceivable], isHead: Boolean, isTail: Boolean): Behavior[ServerReceivable] = {
-
+    def registeredServer(context: ActorContext[ServerReceivable], message: ServerReceivable, masterService: ActorRef[MasterServiceReceivable]): Behavior[ServerReceivable] = {
         context.log.info("Server: server is registered at {}.", masterService.path)
+        Behaviors.same
+    }
+
+    def chainPositionUpdate(context: ActorContext[ServerReceivable], message: ServerReceivable,
+                            isHead: Boolean, isTail: Boolean,
+                            previous: ActorRef[ServerReceivable], next: ActorRef[ServerReceivable]
+                           ): Behavior[ServerReceivable] = {
+        context.log.info("Server: server received chain position update, isHead {}, isTail {}, previous {} and next {}.",
+            isHead, isTail, previous, next)
+
+        this.isHead = isHead
+        this.isTail = isTail
+        this.previous = previous
+        this.next = next
+
         Behaviors.same
     }
 
     def query(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, options: Option[List[String]], from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
         val result = storage.query(objId, options)
+
         // TODO: handle errors (None case)
         result match {
             case _ => from ! QueryResponse(objId, result.get)

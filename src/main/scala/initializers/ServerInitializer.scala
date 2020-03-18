@@ -14,8 +14,11 @@ object ServerInitializer {
     def apply(): Behavior[NotUsed] =
         Behaviors.setup {
             context => {
-                val server = context.spawn(Server(), "CRS")
-                server ! InitServer(MASTER_SERVICE_PATH)
+                // Add multiple Server actors at once
+                for(i <- 1 to 3) {
+                    val server = context.spawn(Server(), "CRS" + i)
+                    server ! InitServer(MASTER_SERVICE_PATH)
+                }
 
                 Behaviors.receiveSignal {
                     case (_, Terminated(_)) =>
