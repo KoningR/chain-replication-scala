@@ -12,8 +12,6 @@ object MasterService {
     final case class InitMasterService() extends MasterServiceReceivable
     final case class RequestChainInfo(replyTo: ActorRef[ClientReceivable]) extends MasterServiceReceivable
     final case class RegisterServer(replyTo: ActorRef[ServerReceivable]) extends MasterServiceReceivable
-    final case class RequestChainPosition(replyTo: ActorRef[ServerReceivable]) extends MasterServiceReceivable
-
     private var chain = List[ActorRef[ServerReceivable]]()
 
     def apply(): Behavior[MasterServiceReceivable] = Behaviors.receive {
@@ -22,7 +20,6 @@ object MasterService {
                 case InitMasterService() => initMasterService(context, message)
                 case RegisterServer(replyTo) => registerServer(context, message, replyTo)
                 case RequestChainInfo(replyTo) => requestChainInfo(context, message, replyTo)
-                case RequestChainPosition(replyTo) => requestChainPosition(context, message, replyTo)
             }
         }
     }
@@ -49,14 +46,6 @@ object MasterService {
         replyTo ! ChainInfoResponse(chain.head, chain.last)
 
         context.log.info("MasterService: received a chain request from a client, sent info.")
-        Behaviors.same
-    }
-
-    def requestChainPosition(context: ActorContext[MasterServiceReceivable], message: MasterServiceReceivable, replyTo: ActorRef[ServerReceivable]): Behavior[MasterServiceReceivable] = {
-        val index = chain.indexOf(replyTo)
-        chainPositionUpdate(context, replyTo, index)
-
-        context.log.info("MasterService: received a chain position request from a server, sent position.")
         Behaviors.same
     }
 

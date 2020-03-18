@@ -58,7 +58,7 @@ object Server {
         context.log.info("Server: server is registered at {}.", masterService.path)
         Behaviors.same
     }
-    
+
     def chainPositionUpdate(context: ActorContext[ServerReceivable], message: ServerReceivable,
                             isHead: Boolean, isTail: Boolean,
                             previous: ActorRef[ServerReceivable], next: ActorRef[ServerReceivable]
