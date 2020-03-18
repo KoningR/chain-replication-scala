@@ -35,8 +35,10 @@ object MasterService {
 
         replyTo ! RegisteredServer(context.self)
 
-        // TODO: can be optimized to only send update to the neighbours of this server
-        chain.zipWithIndex.foreach{ case (server, index) => chainPositionUpdate(context, server, index) }
+        // Send chainPositionUpdate to the new server and the neighbor of the new server
+        // When the chain has < 2 elements, splitAt(2)._1 will create an empty list or a list with 1 item, so no errors
+        val (neighbours, _) = chain.splitAt(2)
+        neighbours.zipWithIndex.foreach{ case (server, index) => chainPositionUpdate(context, server, index) }
 
         context.log.info("MasterService: received a register request from a server, sent response.")
         Behaviors.same
