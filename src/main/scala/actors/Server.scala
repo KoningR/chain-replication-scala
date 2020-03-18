@@ -46,8 +46,7 @@ object Server {
                     update(context, message, objId, newObj, options, from, next)
                 }
                 case UpdateAcknowledgement(objId, newObj, next) => {
-                    processAcknowledgement(UpdateAcknowledgement(objId, newObj, next))
-                    Behaviors.same
+                    processAcknowledgement(UpdateAcknowledgement(objId, newObj, next), context.self)
                 }
                 case Query(objId, options, from) => query(context, message, objId, options, from)
                 case ChainPositionUpdate(isHead, isTail, previous, next) => chainPositionUpdate(context, message, isHead, isTail, previous, next)
@@ -109,8 +108,8 @@ object Server {
                     next ! Update(objId, newObj, options, from, next)
                 }
             }
-        }
-        else if (this.isTail){
+        } else
+        if (this.isTail){
             result match {
                 case _ => {
                     from ! UpdateResponse(objId, newObj)
@@ -120,22 +119,23 @@ object Server {
         }
         else {
             next ! Update(objId, newObj, options, from, next)
-            previous ! UpdateAcknowledgement(objId, newObj, context.self)
         }
 
         context.log.info("Server: sent a update response for objId {} = {}.", objId, newObj)
         Behaviors.same
     }
 
-    def processAcknowledgement(ack: UpdateAcknowledgement): Unit = {
+    def processAcknowledgement(ack: UpdateAcknowledgement, self: ActorRef[ServerReceivable]) : Behavior[ServerReceivable] = {
         // TODO: remove Update from imProcess List.
         val results = inProcess.filter {
-            case Update(objId, newObj, options, from, previous) =>{
-                return !(objId==ack.objId && newObj==ack.newObj)
-            }
+            case Update(objId, newObj, options, from, previous) => !(objId==ack.objId && newObj==ack.newObj)
             case _ => true
         }
         inProcess = results
+        if (!this.isHead) {
+            previous ! UpdateAcknowledgement(ack.objId, ack.newObj, self)
+        }
+        Behaviors.same
     }
 
 }
