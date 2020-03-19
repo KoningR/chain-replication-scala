@@ -1,7 +1,7 @@
 package actors
 
 import actors.Client.{ChainInfoResponse, ClientReceivable}
-import actors.Server.{RegisteredServer, ServerReceivable}
+import actors.Server.{ChainPositionUpdate, RegisteredServer, ServerReceivable}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import communication.JsonSerializable
@@ -35,9 +35,15 @@ object MasterService {
     }
 
     def registerServer(context: ActorContext[MasterServiceReceivable], message: MasterServiceReceivable, replyTo: ActorRef[ServerReceivable]): Behavior[MasterServiceReceivable] = {
+        // Always add new server to the head of the chain
         chain = replyTo :: chain
 
-        replyTo ! RegisteredServer(context.self, replyTo, replyTo, isHead = true, isTail = true)
+        replyTo ! RegisteredServer(context.self)
+
+        // Send chainPositionUpdate to the new server and the neighbor of the new server
+        // When the chain has < 2 elements, splitAt(2)._1 will create an empty list or a list with 1 item, so no errors
+        val (neighbours, _) = chain.splitAt(2)
+        neighbours.zipWithIndex.foreach{ case (server, index) => chainPositionUpdate(context, server, index) }
 
         context.log.info("MasterService: received a register request from a server, sent response.")
 
@@ -65,5 +71,15 @@ object MasterService {
 
         context.log.info("MasterService: received a chain request from a client, sent info.")
         Behaviors.same
+    }
+
+    def chainPositionUpdate(context: ActorContext[MasterServiceReceivable],
+                                 server: ActorRef[ServerReceivable], index: Int): Unit = {
+        val isHead = index == 0
+        val isTail = index == chain.length - 1
+        val previous = chain(Math.max(index - 1, 0))
+        val next = chain(Math.min(index + 1, chain.length - 1))
+        context.log.info("MasterService sent {} chain position: isHead: {}, isTail: {}, previous: {} and next: {}", server, isHead, isTail, previous, next)
+        server ! ChainPositionUpdate(isHead, isTail, previous, next)
     }
 }
