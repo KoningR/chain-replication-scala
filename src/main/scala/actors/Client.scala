@@ -44,6 +44,8 @@ object Client {
     def chainInfoResponse(context: ActorContext[ClientReceivable], message: ClientReceivable, head: ActorRef[ServerReceivable], tail: ActorRef[ServerReceivable]): Behavior[ClientReceivable] = {
         this.head = head
         this.tail = tail
+        println(s"Head I have right now is: ${head.path.name}")
+        println(s"Tail I have right now is: ${tail.path.name}")
 
         context.log.info("Client: received a ChainInfoResponse, head: {}, tail: {}", head.path, tail.path)
         Behaviors.same
@@ -61,12 +63,18 @@ object Client {
 
     def callQuery(context: ActorContext[ClientReceivable], message: ClientReceivable,
                   objId: Int, options: Option[List[String]]): Behavior[ClientReceivable] = {
+        println(s"Sending a query request to head: ${this.head.path.name}")
+        println(s"Head I have right now is: ${head.path.name}")
+        println(s"Tail I have right now is: ${tail.path.name}")
         this.head ! Query(objId, options, context.self)
         Behaviors.same
     }
 
     def callUpdate(context: ActorContext[ClientReceivable], message: ClientReceivable,
                    objId: Int, newObj: String, options: Option[List[String]]): Behavior[ClientReceivable] = {
+        println(s"Sending a update request to tail: ${this.tail.path.name}")
+        println(s"Head I have right now is: ${head.path.name}")
+        println(s"Tail I have right now is: ${tail.path.name}")
         this.tail ! Update(objId, newObj, options, context.self)
         Behaviors.same
     }

@@ -45,6 +45,12 @@ object MasterService {
     }
 
     def requestChainInfo(context: ActorContext[MasterServiceReceivable], message: MasterServiceReceivable, replyTo: ActorRef[ClientReceivable]): Behavior[MasterServiceReceivable] = {
+        println("Current chain:")
+        chain.foreach(x => {
+            println(x.path.name)
+        })
+        println(s"Current chain head: ${chain.head.path.name}")
+        println(s"Current chain tail: ${chain.last.path.name}")
         replyTo ! ChainInfoResponse(chain.head, chain.last)
 
         context.log.info("MasterService: received a chain request from a client, sent info.")

@@ -46,6 +46,7 @@ object Server {
         // TODO: Check if masterService is defined and stop the server if not.
 
         val fileName = context.self.path.name
+        context.log.info(s"Server: creating storage as ${context.self.path.name} with filename ${context.self.path.name}")
         storage = new Storage(fileName)
 
         masterService ! RegisterServer(context.self)
@@ -80,7 +81,7 @@ object Server {
         result match {
             case Some(res) =>
                 from ! QueryResponse(objId, res)
-                context.log.info("Server: sent a query response for objId {} = {}.", objId, res)
+                context.log.info("Server: sent a query response for objId {} = {}, I am: {}.", objId, res, context.self.path)
             case None =>
                 context.log.info("No result found for objId {}", objId)
         }
@@ -94,7 +95,7 @@ object Server {
         result match {
             case Some(res) =>
                 from ! UpdateResponse(objId, newObj)
-                context.log.info("Server: sent a update response for objId {} = {} as {}.", objId, newObj, res)
+                context.log.info("Server: sent a update response for objId {} = {} as {}, I am: {}.", objId, newObj, res, context.self.path)
             case None =>
                 context.log.info("Something went wrong while updating {}", objId)
         }
