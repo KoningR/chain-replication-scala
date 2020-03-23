@@ -1,10 +1,10 @@
 package initializers
 
 import actors.Client.{CallQuery, CallUpdate}
-import akka.actor.typed.scaladsl.adapter._
 import akka.NotUsed
 import akka.actor.ActorSelection
 import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.{ActorSystem, Behavior}
 import com.typesafe.config.ConfigFactory
 
@@ -21,37 +21,47 @@ object ClientCLI {
             context => {
                 this.client = context.toClassic.actorSelection(CLIENT_PATH)
 
-                var input = StdIn.readLine("Please input something to do: ")
+                var input = StdIn.readLine("Please input something to do:")
                 while (!input.equals("quit") || !input.equals("q")) {
-                    println(input)
 
-                    val output: List[String] = input.split(",").map(_.trim).filter(_.length > 0).toList
+                    val command: String = input.split(",").map(_.trim).toList(0)
 
-                    output match {
-                        case "query" :: objId :: options =>
-                            println("  Query called")
-                            if (objId.forall(_.isDigit)) {
-                                println("Object id: " + objId)
-                                println("  Options: ")
-                                options.foreach(println)
-                                client ! CallQuery(objId.toInt, Option(options))
-                            } else {
-                                println("Object ID invalid")
+                    command match {
+                        case "query" =>
+                            println("Query command called.")
+                            val inputList: List[String] = input.split(",").map(_.trim).filter(_.length > 0).toList
+
+                            inputList match {
+                                case _ :: objId :: options =>
+                                    println("   Object ID: " + objId)
+                                    println("   Options: ")
+                                    options.foreach(println)
+                                    val optionsParameter = options match {
+                                        case Nil => None
+                                        case list => Some(list)
+                                    }
+                                    client ! CallQuery(objId.toInt, optionsParameter)
                             }
-                        case "update" :: objId :: newObj :: options =>
-                            println("  Update called")
-                            if (objId.forall(_.isDigit)) {
-                                println("Object id : " + objId)
-                                println("New object: " + newObj)
-                                println("  Options: ")
-                                options.foreach(println)
-                                client ! CallUpdate(objId.toInt, newObj, Option(options))
-                            } else {
-                                println("Object ID invalid")
+                        case "update" =>
+                            println("Update command called.")
+                            val newObj = input.substring(input.indexOf("{"), input.lastIndexOf("}") + 1)
+                            val inputWithoutObject = input.replace(newObj, "")
+                            val inputWithoutObjectList: List[String] = inputWithoutObject.split(",").map(_.trim).filter(_.length > 0).toList
+
+                            inputWithoutObjectList match {
+                                case _ :: objId :: options =>
+                                    println("   Object ID : " + objId)
+                                    println("   New Object: " + newObj)
+                                    println("   Options: ")
+                                    options.foreach(println)
+                                    val optionsParameter = options match {
+                                        case Nil => None
+                                        case list => Some(list)
+                                    }
+                                    client ! CallUpdate(objId.toInt, newObj, optionsParameter)
                             }
-                        case _ => println("Unknown output " + output)
+                        case _ => println("Command was not valid.")
                     }
-
                     input = StdIn.readLine("Please input something to do: ")
                 }
 

@@ -99,7 +99,6 @@ object Server {
                 context.log.info("Something went wrong while updating {}", objId)
         }
 
-        context.log.info("Server: sent a update response for objId {} = {}.", objId, newObj)
         Behaviors.same
     }
 }
