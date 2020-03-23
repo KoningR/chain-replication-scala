@@ -22,4 +22,6 @@ class InMemoryMapDatabase extends Database {
     }
 
     override def close(): Unit = {}
+
+    override def clear(): Unit = storage = Map()
 }

@@ -29,4 +29,10 @@ trait Database {
      * Closes the database.
      */
     def close(): Unit
+
+    /**
+     * Clears the database.
+     */
+    def clear(): Unit
+
 }
