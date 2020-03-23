@@ -93,5 +93,37 @@ class StorageTest extends FunSuite {
     }
   }
 
+  test("multiple storage tests with 1 update") {
+    val storage1: Storage = new Storage("test_storage_1")
+    val storage2: Storage = new Storage("test_storage_2")
+    val storage3: Storage = new Storage("test_storage_3")
+    val storage4: Storage = new Storage("test_storage_4")
+
+    storage1.storage.clear()
+    storage2.storage.clear()
+    storage3.storage.clear()
+    storage4.storage.clear()
+
+    storage4.update(999, """{"name":"Akka"}""", None)
+
+    val shouldBeFalse = List(
+      storage1.query(999, None),
+      storage2.query(999, None),
+      storage3.query(999, None)
+    ).exists(_.isDefined)
+
+    val shouldBeTrue = storage4.query(999, None).isDefined
+
+    storage1.storage.close()
+    storage2.storage.close()
+    storage3.storage.close()
+    storage4.storage.close()
+
+    if (!shouldBeFalse && shouldBeTrue) {
+      succeed
+    } else {
+      fail()
+    }
+  }
 }
 
