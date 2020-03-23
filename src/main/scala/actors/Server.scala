@@ -77,23 +77,28 @@ object Server {
     def query(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, options: Option[List[String]], from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
         val result = storage.query(objId, options)
 
-        // TODO: handle errors (None case)
         result match {
-            case _ => from ! QueryResponse(objId, result.get)
+            case Some(res) =>
+                from ! QueryResponse(objId, res)
+                context.log.info("Server: sent a query response for objId {} = {}.", objId, res)
+            case None =>
+                context.log.info("No result found for objId {}", objId)
         }
 
-        context.log.info("Server: sent a query response for objId {} = {}.", objId, "Apple")
         Behaviors.same
     }
 
     def update(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, newObj: String, options: Option[List[String]], from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
         val result = storage.update(objId, newObj, options)
-        // TODO: handle errors (None case)
+
         result match {
-            case _ => from ! UpdateResponse(objId, newObj)
+            case Some(res) =>
+                from ! UpdateResponse(objId, newObj)
+                context.log.info("Server: sent a update response for objId {} = {} as {}.", objId, newObj, res)
+            case None =>
+                context.log.info("Something went wrong while updating {}", objId)
         }
 
-        context.log.info("Server: sent a update response for objId {} = {}.", objId, newObj)
         Behaviors.same
     }
 }
