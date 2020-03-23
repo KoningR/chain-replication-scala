@@ -5,7 +5,7 @@ import actors.Server.{Query, ServerReceivable, Update}
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
-import communication.{JsonSerializable, SampleJSON}
+import communication.JsonSerializable
 
 object Client {
 
@@ -35,7 +35,6 @@ object Client {
 
     def initClient(context: ActorContext[ClientReceivable], message: ClientReceivable, remoteMasterServicePath: String): Behavior[ClientReceivable] = {
         val masterService = context.toClassic.actorSelection(remoteMasterServicePath)
-
         masterService ! RequestChainInfo(context.self)
 
         context.log.info("Client: will try to get the chain's head and tail from the masterService {}.", masterService.pathString)
@@ -46,15 +45,11 @@ object Client {
         this.head = head
         this.tail = tail
 
-        this.head ! Update(1, SampleJSON.simpleObject, None, context.self)
-
         context.log.info("Client: received a ChainInfoResponse, head: {}, tail: {}", head.path, tail.path)
         Behaviors.same
     }
 
     def queryResponse(context: ActorContext[ClientReceivable], message: ClientReceivable, objId: Int, queryResult: String): Behavior[ClientReceivable] = {
-        this.head ! Update(1, "New object", None, context.self)
-
         context.log.info("Client: received a QueryResponse for objId {} = {}", objId, queryResult)
         Behaviors.same
     }
