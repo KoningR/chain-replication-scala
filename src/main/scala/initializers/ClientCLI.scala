@@ -24,12 +24,12 @@ object ClientCLI {
                 var input = StdIn.readLine("Please input something to do:")
                 while (!input.equals("quit") || !input.equals("q")) {
 
-                    val command: String = input.split(",").map(_.trim).toList(0)
+                    val command: String = input.split(" ").map(_.trim).toList(0)
 
                     command match {
                         case "query" =>
                             println("Query command called.")
-                            val inputList: List[String] = input.split(",").map(_.trim).filter(_.length > 0).toList
+                            val inputList: List[String] = input.split(" ").map(_.trim).filter(_.length > 0).toList
 
                             inputList match {
                                 case _ :: objId :: options =>
@@ -46,7 +46,7 @@ object ClientCLI {
                             println("Update command called.")
                             val newObj = input.substring(input.indexOf("{"), input.lastIndexOf("}") + 1)
                             val inputWithoutObject = input.replace(newObj, "")
-                            val inputWithoutObjectList: List[String] = inputWithoutObject.split(",").map(_.trim).filter(_.length > 0).toList
+                            val inputWithoutObjectList: List[String] = inputWithoutObject.split(" ").map(_.trim).filter(_.length > 0).toList
 
                             inputWithoutObjectList match {
                                 case _ :: objId :: options =>
