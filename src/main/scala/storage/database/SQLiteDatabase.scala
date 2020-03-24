@@ -18,6 +18,8 @@ class Objects(tag: Tag) extends Table[(Int, String)](tag, "OBJECTS") {
 }
 
 class SQLiteDatabase(fileName: String) extends Database {
+
+    println(s"SQLiteDatabase: init ${fileName}")
     // Initializations of database and table
     val objects = TableQuery[Objects]
 
@@ -37,6 +39,7 @@ class SQLiteDatabase(fileName: String) extends Database {
     val setupFuture: Unit = Await.result(db.run(setup), 20 seconds)
 
     override def get(objectId: Int): Future[Option[String]] = {
+        println(s"SQLiteDatabase: getting ${objectId} as ${fileName}")
         val action = objects
           .filter(_.id === objectId)
           .map(_.json_blob)
@@ -46,6 +49,7 @@ class SQLiteDatabase(fileName: String) extends Database {
     }
 
     override def upsert(objectId: Int, value: String): Future[Option[String]] = {
+        println(s"SQLiteDatabase: updating ${objectId} as ${fileName}")
         val action = objects.insertOrUpdate((objectId, value))
 
         // The result of the method is the amount of rows it has changed,
