@@ -1,5 +1,7 @@
 package storage
 
+import actors.Server
+import akka.actor.typed.scaladsl.ActorContext
 import storage.database.SQLiteDatabase
 
 import scala.concurrent.Await
@@ -81,7 +83,21 @@ class Storage(val identifier: String) {
                         }
                 }
         }
-
-
     }
+
+    def printAllObjects(context: ActorContext[Server.ServerReceivable]): Unit = {
+        val databaseObjects = Await.result(storage.getAllObjects, 5 seconds)
+
+        context.log.info("Server: printing all storage objects of {}.", context.self.path)
+        databaseObjects match {
+            case Nil =>
+                println(s"No objects found...")
+            case seq: Seq[(Int, String)] =>
+                seq.foreach {
+                    case (id: Int, obj: String) =>
+                        println(s"Object ${id} = ${obj}")
+                }
+        }
+    }
+
 }

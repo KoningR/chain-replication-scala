@@ -21,6 +21,7 @@ object Server {
                                          previous: ActorRef[ServerReceivable],
                                          next: ActorRef[ServerReceivable]
                                         ) extends ServerReceivable
+    final case class PrintDatabase() extends ServerReceivable
 
     private var masterService: ActorSelection = _
     private var storage: Storage = _
@@ -38,6 +39,7 @@ object Server {
                 case Update(objId, newObj, options, from) => update(context, message, objId, newObj, options, from)
                 case RegisteredServer(masterService) => registeredServer(context, message, masterService)
                 case ChainPositionUpdate(isHead, isTail, previous, next) => chainPositionUpdate(context, message, isHead, isTail, previous, next)
+                case PrintDatabase() => printDatabase(context, message)
             }
     }
 
@@ -46,7 +48,7 @@ object Server {
         // TODO: Check if masterService is defined and stop the server if not.
 
         val fileName = context.self.path.name
-        context.log.info(s"Server: creating storage as ${context.self.path.name} with filename ${context.self.path.name}")
+        context.log.info(s"Server: creating storage as ${context.self.path.name} with filename ${fileName}")
         storage = new Storage(fileName)
 
         masterService ! RegisterServer(context.self)
@@ -76,6 +78,12 @@ object Server {
     }
 
     def query(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, options: Option[List[String]], from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
+
+        previous ! PrintDatabase()
+        next ! PrintDatabase()
+
+        Thread.sleep(1000)
+
         val result = storage.query(objId, options)
 
         result match {
@@ -86,10 +94,21 @@ object Server {
                 context.log.info("No result found for objId {}", objId)
         }
 
+        Thread.sleep(1000)
+
+        previous ! PrintDatabase()
+        next ! PrintDatabase()
+
         Behaviors.same
     }
 
     def update(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, newObj: String, options: Option[List[String]], from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
+
+        previous ! PrintDatabase()
+        next ! PrintDatabase()
+
+        Thread.sleep(1000)
+
         val result = storage.update(objId, newObj, options)
 
         result match {
@@ -99,6 +118,19 @@ object Server {
             case None =>
                 context.log.info("Something went wrong while updating {}", objId)
         }
+
+        Thread.sleep(1000)
+
+        previous ! PrintDatabase()
+        next ! PrintDatabase()
+
+        Behaviors.same
+    }
+
+    def printDatabase(context: ActorContext[Server.ServerReceivable], message: Server.ServerReceivable): Behavior[ServerReceivable] = {
+        context.log.info("Server: printing all storage objects of {}.", context.self.path)
+        context.log.info(storage.toString)
+        storage.printAllObjects(context)
 
         Behaviors.same
     }
