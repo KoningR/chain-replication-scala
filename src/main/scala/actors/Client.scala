@@ -45,15 +45,11 @@ object Client {
         this.head = head
         this.tail = tail
 
-        this.head ! Update(1, SampleJSON.simpleObject, None, context.self, this.head)
-
         context.log.info("Client: received a ChainInfoResponse, head: {}, tail: {}", head.path, tail.path)
         Behaviors.same
     }
 
     def queryResponse(context: ActorContext[ClientReceivable], message: ClientReceivable, objId: Int, queryResult: String): Behavior[ClientReceivable] = {
-        this.head ! Update(1, "New object", None, context.self, this.head)
-
         context.log.info("Client: received a QueryResponse for objId {} = {}", objId, queryResult)
         Behaviors.same
     }
@@ -65,13 +61,13 @@ object Client {
 
     def callQuery(context: ActorContext[ClientReceivable], message: ClientReceivable,
                   objId: Int, options: Option[List[String]]): Behavior[ClientReceivable] = {
-        this.head ! Query(objId, options, context.self)
+        this.tail ! Query(objId, options, context.self)
         Behaviors.same
     }
 
     def callUpdate(context: ActorContext[ClientReceivable], message: ClientReceivable,
                    objId: Int, newObj: String, options: Option[List[String]]): Behavior[ClientReceivable] = {
-        this.tail ! Update(objId, newObj, options, context.self, this.head)
+        this.head ! Update(objId, newObj, options, context.self, this.head)
         Behaviors.same
     }
 }

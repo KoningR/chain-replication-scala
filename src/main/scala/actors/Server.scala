@@ -107,16 +107,13 @@ object Server {
         val result = storage.update(objId, newObj, options)
         result match {
             case Some(res) =>
-                if (this.isHead){
-                    next ! Update(objId, newObj, options, from, next)
-                } else
-                if (this.isTail){
+                if (this.isTail) {
                     from ! UpdateResponse(objId, newObj)
                     previous ! UpdateAcknowledgement(objId, newObj, context.self)
                 } else {
                     next ! Update(objId, newObj, options, from, next)
                 }
-//                context.log.info("Server: sent a update response for objId {} = {} as {}.", objId, newObj, res)
+                context.log.info("Server: sent a update response for objId {} = {} as {}.", objId, newObj, res)
             case None =>
                 context.log.info("Something went wrong while updating {}", objId)
         }
