@@ -42,10 +42,12 @@ object Server {
                 case InitServer(remoteMasterServicePath) => initServer(context, message, remoteMasterServicePath)
                 case RegisteredServer(masterService) => registeredServer(context, message, masterService)
                 case Update(objId, newObj, options, from, self) => {
+//                    context.log.info("update in server:")
                     inProcess = Update(objId, newObj, options, from, next) :: inProcess
                     update(context, message, objId, newObj, options, from, next)
                 }
                 case UpdateAcknowledgement(objId, newObj, next) => {
+                    context.log.info("processingAcknowledgment in server:")
                     processAcknowledgement(UpdateAcknowledgement(objId, newObj, next), context.self)
                 }
                 case Query(objId, options, from) => query(context, message, objId, options, from)
@@ -89,44 +91,40 @@ object Server {
     def query(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, options: Option[List[String]], from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
         val result = storage.query(objId, options)
 
-        // TODO: handle errors (None case)
         result match {
-            case _ => from ! QueryResponse(objId, result.get)
+            case Some(res) =>
+                from ! QueryResponse(objId, res)
+                context.log.info("Server: sent a query response for objId {} = {}.", objId, res)
+            case None =>
+                context.log.info("No result found for objId {}", objId)
         }
 
-        context.log.info("Server: sent a query response for objId {} = {}.", objId, "Apple")
         Behaviors.same
     }
 
 
     def update(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, newObj: String, options: Option[List[String]], from: ActorRef[ClientReceivable], previous: ActorRef[ServerReceivable]): Behavior[ServerReceivable] = {
         val result = storage.update(objId, newObj, options)
-        // TODO: handle errors (None case)
-        if (this.isHead){
-            result match {
-                case _ => {
+        result match {
+            case Some(res) =>
+                if (this.isHead){
                     next ! Update(objId, newObj, options, from, next)
-                }
-            }
-        } else
-        if (this.isTail){
-            result match {
-                case _ => {
+                } else
+                if (this.isTail){
                     from ! UpdateResponse(objId, newObj)
                     previous ! UpdateAcknowledgement(objId, newObj, context.self)
+                } else {
+                    next ! Update(objId, newObj, options, from, next)
                 }
-            }
-        }
-        else {
-            next ! Update(objId, newObj, options, from, next)
+//                context.log.info("Server: sent a update response for objId {} = {} as {}.", objId, newObj, res)
+            case None =>
+                context.log.info("Something went wrong while updating {}", objId)
         }
 
-        context.log.info("Server: sent a update response for objId {} = {}.", objId, newObj)
         Behaviors.same
     }
 
     def processAcknowledgement(ack: UpdateAcknowledgement, self: ActorRef[ServerReceivable]) : Behavior[ServerReceivable] = {
-        // TODO: remove Update from imProcess List.
         val results = inProcess.filter {
             case Update(objId, newObj, options, from, previous) => !(objId==ack.objId && newObj==ack.newObj)
             case _ => true
