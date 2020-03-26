@@ -54,11 +54,7 @@ object MasterService {
         // Send chainPositionUpdate to all the servers in the chain
         chain.zipWithIndex.foreach{ case (server, index) => chainPositionUpdate(context, server, index) }
 
-        // Send chainPositionUpdate to all the known clients
-        updateKnownClients(context)
-
         context.log.info("MasterService: received a register request from a server, sent response.")
-
         Behaviors.same
     }
 
@@ -77,7 +73,7 @@ object MasterService {
         val next = chain(Math.min(index + 1, chain.length - 1))
         context.log.info("MasterService sent {} chain position: isHead: {}, isTail: {}, previous: {} and next: {}", server, isHead, isTail, previous, next)
         server ! ChainPositionUpdate(isHead, isTail, previous, next)
-
+        updateKnownClients(context)
     }
 
     def heartbeat(value: ActorContext[MasterServiceReceivable], receivable: MasterServiceReceivable, replyTo: ActorRef[Server.ServerReceivable]): Behavior[MasterServiceReceivable] = {
