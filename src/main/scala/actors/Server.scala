@@ -8,6 +8,7 @@ import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import communication.JsonSerializable
 import storage.Storage
+import ujson.IndexedValue.True
 
 object Server {
 
@@ -42,12 +43,10 @@ object Server {
                 case InitServer(remoteMasterServicePath) => initServer(context, message, remoteMasterServicePath)
                 case RegisteredServer(masterService) => registeredServer(context, message, masterService)
                 case Update(objId, newObj, options, from, self) => {
-//                    context.log.info("update in server:")
                     inProcess = Update(objId, newObj, options, from, next) :: inProcess
-                    update(context, message, objId, newObj, options, from, next)
+                    update(context, message, objId, newObj, options, from)
                 }
                 case UpdateAcknowledgement(objId, newObj, next) => {
-                    context.log.info("processingAcknowledgment in server:")
                     processAcknowledgement(UpdateAcknowledgement(objId, newObj, next), context.self)
                 }
                 case Query(objId, options, from) => query(context, message, objId, options, from)
@@ -79,18 +78,16 @@ object Server {
                            ): Behavior[ServerReceivable] = {
         context.log.info("Server: server received chain position update, isHead {}, isTail {}, previous {} and next {}.",
             isHead, isTail, previous, next)
-
         this.isHead = isHead
         this.isTail = isTail
         this.previous = previous
         this.next = next
-
+        context.log.info("Am I the tail? {}", this.isTail)
         Behaviors.same
     }
 
     def query(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, options: Option[List[String]], from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
         val result = storage.query(objId, options)
-
         result match {
             case Some(res) =>
                 from ! QueryResponse(objId, res)
@@ -98,20 +95,19 @@ object Server {
             case None =>
                 context.log.info("No result found for objId {}", objId)
         }
-
         Behaviors.same
     }
 
 
-    def update(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, newObj: String, options: Option[List[String]], from: ActorRef[ClientReceivable], previous: ActorRef[ServerReceivable]): Behavior[ServerReceivable] = {
+    def update(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, newObj: String, options: Option[List[String]], from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
         val result = storage.update(objId, newObj, options)
         result match {
             case Some(res) =>
                 if (this.isTail) {
                     from ! UpdateResponse(objId, newObj)
-                    previous ! UpdateAcknowledgement(objId, newObj, context.self)
+                    this.previous ! UpdateAcknowledgement(objId, newObj, context.self)
                 } else {
-                    next ! Update(objId, newObj, options, from, next)
+                    this.next ! Update(objId, newObj, options, from, this.next)
                 }
                 context.log.info("Server: sent a update response for objId {} = {} as {}.", objId, newObj, res)
             case None =>
@@ -128,7 +124,7 @@ object Server {
         }
         inProcess = results
         if (!this.isHead) {
-            previous ! UpdateAcknowledgement(ack.objId, ack.newObj, self)
+            this.previous ! UpdateAcknowledgement(ack.objId, ack.newObj, self)
         }
         Behaviors.same
     }
