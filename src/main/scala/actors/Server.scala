@@ -45,7 +45,7 @@ object Server {
         masterService = context.toClassic.actorSelection(remoteMasterServicePath)
         // TODO: Check if masterService is defined and stop the server if not.
 
-        val fileName = context.self.path.name
+        val fileName = context.self.path.toStringWithAddress(context.system.address).hashCode.toString
         storage = new Storage(fileName)
 
         masterService ! RegisterServer(context.self)
