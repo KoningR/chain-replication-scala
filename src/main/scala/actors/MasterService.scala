@@ -35,16 +35,17 @@ object MasterService {
     def initMasterService(context: ActorContext[MasterServiceReceivable], message: MasterServiceReceivable): Behavior[MasterServiceReceivable] = {
         context.log.info("MasterService: master service is initialized.")
 
-        context.system.scheduler.scheduleAtFixedRate(0.seconds, 2.seconds)(() => {
-            chain.foreach(actorRef => {
+        context.system.scheduler.scheduleAtFixedRate(0.seconds, 10.seconds)(() => {
+            val toRemove = chain.filter(actorRef => {
                 val isActive = activeServers.get(actorRef)
+                isActive.contains(false)
+            })
 
-                isActive match {
-                    case Some(false) => removeServerFromChain(context, actorRef)
-                    case _ => None
-                }
+            if (toRemove.nonEmpty) {
+                removeServersFromChain(context, toRemove)
+            }
 
-                // Reset all actors
+            chain.foreach(actorRef => {
                 activeServers = activeServers.updated(actorRef, false)
             })
         })(ExecutionContexts.global())
@@ -69,8 +70,11 @@ object MasterService {
         Behaviors.same
     }
 
-    def removeServerFromChain(context: ActorContext[MasterServiceReceivable], server: ActorRef[ServerReceivable]): Behavior[MasterServiceReceivable] = {
-        context.log.info("MasterService: Removing a server due to failed heartbeat. {}", server)
+    def removeServersFromChain(context: ActorContext[MasterServiceReceivable], servers: List[ActorRef[ServerReceivable]]): Behavior[MasterServiceReceivable] = {
+        context.log.info("MasterService: Removing a servers due to failed heartbeat. {}", servers)
+
+        chain = chain.filter(actorRef => !servers.contains(actorRef))
+        chain.zipWithIndex.foreach{ case (server, index) => chainPositionUpdate(context, server, index) }
 
         Behaviors.same
     }
@@ -96,20 +100,5 @@ object MasterService {
         activeServers = activeServers.updated(replyTo, true)
 
         Behaviors.same
-    }
-
-    def cancelAndStartHeartbeat(context: ActorContext[MasterServiceReceivable], replyTo: ActorRef[ServerReceivable]): Unit = {
-        // Timeout the newly added server after two seconds of not receiving a heartbeat.
-        Behaviors.withTimers[MasterServiceReceivable] {
-            timers => {
-                // Send a Remove(server) message delayed by 2 seconds.
-                timers.startSingleTimer(Remove(replyTo), Remove(replyTo), 5.seconds)
-
-                // Receive the delayed message and remove the server from the chain.
-                Behaviors.receiveMessagePartial {
-                    case Remove(server) => removeServerFromChain(context, server)
-                }
-            }
-        }
     }
 }

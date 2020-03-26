@@ -63,7 +63,6 @@ object Server {
 
         // Send a heartbeat to the masterservice every 2 seconds.
         context.system.scheduler.scheduleAtFixedRate(0.seconds, 2.seconds)(() => {
-            context.log.info("Printing every 2 seconds boi.")
             masterService ! Heartbeat(context.self)
         })(ExecutionContexts.global())
 
