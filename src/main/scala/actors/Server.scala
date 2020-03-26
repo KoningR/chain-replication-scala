@@ -45,7 +45,7 @@ object Server {
         masterService = context.toClassic.actorSelection(remoteMasterServicePath)
         // TODO: Check if masterService is defined and stop the server if not.
 
-        val fileName = context.self.path.name
+        val fileName = context.self.path.toStringWithAddress(context.system.address).hashCode.toString
         storage = new Storage(fileName)
 
         masterService ! RegisterServer(context.self)
@@ -76,7 +76,6 @@ object Server {
 
     def query(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, options: Option[List[String]], from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
         val result = storage.query(objId, options)
-        println(storage)
 
         result match {
             case Some(res) =>
@@ -91,7 +90,6 @@ object Server {
 
     def update(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, newObj: String, options: Option[List[String]], from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
         val result = storage.update(objId, newObj, options)
-        println(storage)
 
         result match {
             case Some(res) =>

@@ -33,9 +33,6 @@ object MasterService {
         // Always add new server to the head of the chain
         chain = replyTo :: chain
 
-        context.log.info("MasterService: printing the chain")
-        chain.foreach(println)
-
         replyTo ! RegisteredServer(context.self)
 
         // Send chainPositionUpdate to the new server and the neighbor of the new server
