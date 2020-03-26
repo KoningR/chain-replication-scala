@@ -4,6 +4,7 @@ import actors.Client.{ChainInfoResponse, ClientReceivable}
 import actors.Server.{ChainPositionUpdate, RegisteredServer, ServerReceivable}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
+import akka.dispatch.ExecutionContexts
 import communication.JsonSerializable
 
 import scala.concurrent.duration._
@@ -14,8 +15,8 @@ object MasterService {
     final case class InitMasterService() extends MasterServiceReceivable
     final case class RequestChainInfo(replyTo: ActorRef[ClientReceivable]) extends MasterServiceReceivable
     final case class RegisterServer(replyTo: ActorRef[ServerReceivable]) extends MasterServiceReceivable
-
     final case class Remove(server: ActorRef[ServerReceivable]) extends MasterServiceReceivable
+    final case class Heartbeat(server: ActorRef[ServerReceivable]) extends MasterServiceReceivable
 
     private var chain = List[ActorRef[ServerReceivable]]()
 
@@ -25,6 +26,10 @@ object MasterService {
                 case InitMasterService() => initMasterService(context, message)
                 case RegisterServer(replyTo) => registerServer(context, message, replyTo)
                 case RequestChainInfo(replyTo) => requestChainInfo(context, message, replyTo)
+                case Heartbeat(replyTo) => {
+                    cancelAndStartHeartbeat(context, replyTo)
+                    Behaviors.same
+                }
             }
         }
     }
@@ -47,18 +52,8 @@ object MasterService {
 
         context.log.info("MasterService: received a register request from a server, sent response.")
 
-        // Timeout the newly added server after two seconds of not receiving a heartbeat.
-        Behaviors.withTimers[MasterServiceReceivable] {
-            timers => {
-                // Send a Remove(server) message delayed by 2 seconds.
-                timers.startSingleTimer(Remove(replyTo), Remove(replyTo), 2.seconds)
-
-                // Receive the delayed message and remove the server from the chain.
-                Behaviors.receiveMessagePartial {
-                    case Remove(server) => removeServerFromChain(context, server)
-                }
-            }
-        }
+        cancelAndStartHeartbeat(context, replyTo)
+        Behaviors.same
     }
 
     def removeServerFromChain(context: ActorContext[MasterServiceReceivable], server: ActorRef[ServerReceivable]): Behavior[MasterServiceReceivable] = {
@@ -74,12 +69,27 @@ object MasterService {
     }
 
     def chainPositionUpdate(context: ActorContext[MasterServiceReceivable],
-                                 server: ActorRef[ServerReceivable], index: Int): Unit = {
+                            server: ActorRef[ServerReceivable], index: Int): Unit = {
         val isHead = index == 0
         val isTail = index == chain.length - 1
         val previous = chain(Math.max(index - 1, 0))
         val next = chain(Math.min(index + 1, chain.length - 1))
         context.log.info("MasterService sent {} chain position: isHead: {}, isTail: {}, previous: {} and next: {}", server, isHead, isTail, previous, next)
         server ! ChainPositionUpdate(isHead, isTail, previous, next)
+    }
+
+    def cancelAndStartHeartbeat(context: ActorContext[MasterServiceReceivable], replyTo: ActorRef[ServerReceivable]): Unit = {
+        // Timeout the newly added server after two seconds of not receiving a heartbeat.
+        Behaviors.withTimers[MasterServiceReceivable] {
+            timers => {
+                // Send a Remove(server) message delayed by 2 seconds.
+                timers.startSingleTimer(Remove(replyTo), Remove(replyTo), 5.seconds)
+
+                // Receive the delayed message and remove the server from the chain.
+                Behaviors.receiveMessagePartial {
+                    case Remove(server) => removeServerFromChain(context, server)
+                }
+            }
+        }
     }
 }

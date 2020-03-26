@@ -1,13 +1,17 @@
 package actors
 
 import actors.Client.{ClientReceivable, QueryResponse, UpdateResponse}
-import actors.MasterService.{MasterServiceReceivable, RegisterServer}
+import actors.MasterService.{Heartbeat, MasterServiceReceivable, RegisterServer}
 import akka.actor.ActorSelection
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
-import akka.actor.typed.{ActorRef, Behavior}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
+import akka.dispatch.ExecutionContexts
+import com.typesafe.config.ConfigFactory
 import communication.JsonSerializable
 import storage.Storage
+
+import scala.concurrent.duration._
 
 object Server {
 
@@ -56,6 +60,13 @@ object Server {
 
     def registeredServer(context: ActorContext[ServerReceivable], message: ServerReceivable, masterService: ActorRef[MasterServiceReceivable]): Behavior[ServerReceivable] = {
         context.log.info("Server: server is registered at {}.", masterService.path)
+
+        // Send a heartbeat to the masterservice every 2 seconds.
+        context.system.scheduler.scheduleAtFixedRate(0.seconds, 2.seconds)(() => {
+            context.log.info("Printing every 2 seconds boi.")
+            masterService ! Heartbeat(context.self)
+        })(ExecutionContexts.global())
+
         Behaviors.same
     }
 
