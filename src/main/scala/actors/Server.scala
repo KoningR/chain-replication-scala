@@ -8,13 +8,15 @@ import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import communication.JsonSerializable
 import storage.Storage
+import ujson.IndexedValue.True
 
 object Server {
 
     sealed trait ServerReceivable extends JsonSerializable
     final case class InitServer(remoteMasterServicePath: String) extends ServerReceivable
     final case class Query(objId: Int, options: Option[List[String]], from: ActorRef[ClientReceivable]) extends ServerReceivable
-    final case class Update(objId: Int, newObj: String, options: Option[List[String]], from: ActorRef[ClientReceivable]) extends ServerReceivable
+    final case class Update(objId: Int, newObj: String, options: Option[List[String]], from: ActorRef[ClientReceivable], previous: ActorRef[ServerReceivable]) extends ServerReceivable
+    final case class UpdateAcknowledgement(objId: Int, newObj: String, next: ActorRef[ServerReceivable]) extends ServerReceivable
     final case class RegisteredServer(masterService: ActorRef[MasterServiceReceivable]) extends ServerReceivable
     final case class ChainPositionUpdate(isHead: Boolean,
                                          isTail: Boolean,
@@ -22,6 +24,11 @@ object Server {
                                          next: ActorRef[ServerReceivable]
                                         ) extends ServerReceivable
 
+
+
+
+
+    private var inProcess: List[ServerReceivable] = List()
     private var masterService: ActorSelection = _
     private var storage: Storage = _
 
@@ -34,9 +41,17 @@ object Server {
         (context, message) =>
             message match {
                 case InitServer(remoteMasterServicePath) => initServer(context, message, remoteMasterServicePath)
-                case Query(objId, options, from) => query(context, message, objId, options, from)
-                case Update(objId, newObj, options, from) => update(context, message, objId, newObj, options, from)
                 case RegisteredServer(masterService) => registeredServer(context, message, masterService)
+                case Update(objId, newObj, options, from, self) => {
+                    if(!this.isTail) {
+                        inProcess = Update(objId, newObj, options, from, next) :: inProcess
+                    }
+                    update(context, message, objId, newObj, options, from)
+                }
+                case UpdateAcknowledgement(objId, newObj, next) => {
+                    processAcknowledgement(UpdateAcknowledgement(objId, newObj, next), context.self)
+                }
+                case Query(objId, options, from) => query(context, message, objId, options, from)
                 case ChainPositionUpdate(isHead, isTail, previous, next) => chainPositionUpdate(context, message, isHead, isTail, previous, next)
             }
     }
@@ -65,18 +80,15 @@ object Server {
                            ): Behavior[ServerReceivable] = {
         context.log.info("Server: server received chain position update, isHead {}, isTail {}, previous {} and next {}.",
             isHead, isTail, previous, next)
-
         this.isHead = isHead
         this.isTail = isTail
         this.previous = previous
         this.next = next
-
         Behaviors.same
     }
 
     def query(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, options: Option[List[String]], from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
         val result = storage.query(objId, options)
-
         result match {
             case Some(res) =>
                 from ! QueryResponse(objId, res)
@@ -84,21 +96,39 @@ object Server {
             case None =>
                 context.log.info("No result found for objId {}", objId)
         }
-
         Behaviors.same
     }
 
+
     def update(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, newObj: String, options: Option[List[String]], from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
         val result = storage.update(objId, newObj, options)
-
         result match {
             case Some(res) =>
-                from ! UpdateResponse(objId, newObj)
-                context.log.info("Server: sent a update response for objId {} = {} as {}.", objId, newObj, res)
+                if (this.isTail) {
+                    from ! UpdateResponse(objId, newObj)
+                    this.previous ! UpdateAcknowledgement(objId, newObj, context.self)
+                    context.log.info("Server: sent a update response for objId {} = {} as {}.", objId, newObj, context.self)
+                } else {
+                    context.log.info("Server: forward a update response for objId {} = {} as {} to {}.", objId, newObj, context.self, this.next)
+                    this.next ! Update(objId, newObj, options, from, this.next)
+                }
             case None =>
                 context.log.info("Something went wrong while updating {}", objId)
         }
 
         Behaviors.same
     }
+
+    def processAcknowledgement(ack: UpdateAcknowledgement, self: ActorRef[ServerReceivable]) : Behavior[ServerReceivable] = {
+        val results = inProcess.filter {
+            case Update(objId, newObj, options, from, previous) => !(objId==ack.objId && newObj==ack.newObj)
+            case _ => true
+        }
+        inProcess = results
+        if (!this.isHead) {
+            this.previous ! UpdateAcknowledgement(ack.objId, ack.newObj, self)
+        }
+        Behaviors.same
+    }
+
 }
