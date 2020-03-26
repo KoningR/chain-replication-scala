@@ -93,11 +93,12 @@ object Server {
         this.isHead = isHead
         this.isTail = isTail
         this.previous = previous
-        this.next = next
 
-        if(!this.isTail){
+        if(this.next != next && !this.isTail){
+            this.next = next
             forwardUpdates(context)
         }
+        this.next = next
         Behaviors.same
     }
 
