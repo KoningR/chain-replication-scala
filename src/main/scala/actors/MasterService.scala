@@ -51,14 +51,13 @@ object MasterService {
         if (chain.isEmpty) {
             // Add head to chain initially.
             chain = chain :+ replyTo
+            activeServers = activeServers.updated(replyTo, true)
         } else {
             // Otherwise, new server is potential tail first.
             context.log.info(s"MasterService: sending StartNewTailProcess to ${replyTo}")
             potentialTails = potentialTails :+ replyTo
             chain.last ! StartNewTailProcess(replyTo)
         }
-
-        activeServers = activeServers.updated(replyTo, true)
 
         replyTo ! RegisteredServer(context.self)
 
@@ -76,6 +75,7 @@ object MasterService {
 
         // Add server to chain as tail.
         chain = chain :+ replyTo
+        activeServers = activeServers.updated(replyTo, true)
 
         // Send chainPositionUpdate to all the servers in the chain
         chain.zipWithIndex.foreach{ case (server, index) => chainPositionUpdate(context, server, index) }
