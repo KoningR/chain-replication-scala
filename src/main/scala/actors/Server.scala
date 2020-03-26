@@ -93,6 +93,11 @@ object Server {
         this.isHead = isHead
         this.isTail = isTail
         this.previous = previous
+
+        if(this.next != next && !this.isTail){
+            this.next = next
+            forwardUpdates(context)
+        }
         this.next = next
         Behaviors.same
     }
@@ -139,6 +144,13 @@ object Server {
             this.previous ! UpdateAcknowledgement(ack.objId, ack.newObj, self)
         }
         Behaviors.same
+    }
+
+    def forwardUpdates(context: ActorContext[ServerReceivable]) = {
+        inProcess.foreach(unAcknowledgedUpdate => {
+            this.next ! unAcknowledgedUpdate
+            context.log.info("forwarding {}", unAcknowledgedUpdate)
+        })
     }
 
 }
