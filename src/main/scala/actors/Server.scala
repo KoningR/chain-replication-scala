@@ -146,9 +146,9 @@ object Server {
     }
 
     def forwardUpdates(context: ActorContext[ServerReceivable]) = {
-        inProcess.foreach(x => {
-            this.next ! x
-            context.log.info("forwarding {}", x)
+        inProcess.foreach(unAcknowledgedUpdate => {
+            this.next ! unAcknowledgedUpdate
+            context.log.info("forwarding {}", unAcknowledgedUpdate)
         })
     }
 
