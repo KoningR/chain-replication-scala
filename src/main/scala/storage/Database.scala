@@ -26,6 +26,14 @@ trait Database {
     def upsert(objectId: Int, value: String): Future[Option[String]]
 
     /**
+     * Gets all objects in the database.
+     *
+     * @return A Nil sequence when there are no objects in the database
+     *         otherwise, a sequence of (Int, String) pairs for (id, object)
+     */
+    def getAllObjects: Future[Seq[(Int, String)]]
+
+    /**
      * Closes the database.
      */
     def close(): Unit

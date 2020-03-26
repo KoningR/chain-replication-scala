@@ -57,5 +57,11 @@ class SQLiteDatabase(fileName: String) extends Database {
         }
     }
 
+    override def getAllObjects: Future[Seq[(Int, String)]] = {
+        val action = objects
+            .result
+        db.run(action)
+    }
+
     override def close(): Unit = db.close()
 }
