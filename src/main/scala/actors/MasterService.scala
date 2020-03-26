@@ -95,7 +95,6 @@ object MasterService {
         if (toRemove.nonEmpty) {
             context.log.info("MasterService: Removing servers due to failing heartbeats. {}", toRemove)
             chain = chain.filter(actorRef => !toRemove.contains(actorRef))
-            activeServers = activeServers.removedAll(toRemove)
             chain.zipWithIndex.foreach{ case (server, index) => chainPositionUpdate(context, server, index) }
         }
 
