@@ -5,7 +5,7 @@ import actors.Server.InitServer
 import akka.NotUsed
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorSystem, Behavior, Terminated}
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{ConfigFactory}
 
 object ServerInitializer {
 
@@ -15,10 +15,8 @@ object ServerInitializer {
         Behaviors.setup {
             context => {
                 // Add multiple Server actors at once
-                for(i <- 1 to 3) {
-                    val server = context.spawn(Server(), "CRS" + i)
-                    server ! InitServer(MASTER_SERVICE_PATH)
-                }
+                val server = context.spawn(Server(), "CRS")
+                server ! InitServer(MASTER_SERVICE_PATH)
 
                 Behaviors.receiveSignal {
                     case (_, Terminated(_)) =>
@@ -30,7 +28,9 @@ object ServerInitializer {
 
     def main(args: Array[String]): Unit = {
         val config = ConfigFactory.load()
-        ActorSystem(ServerInitializer(), "CRS", config.getConfig("server").withFallback(config))
+        ActorSystem(ServerInitializer(), "CRS", config.getConfig("server1").withFallback(config))
+        ActorSystem(ServerInitializer(), "CRS", config.getConfig("server2").withFallback(config))
+        ActorSystem(ServerInitializer(), "CRS", config.getConfig("server3").withFallback(config))
     }
 
 }
