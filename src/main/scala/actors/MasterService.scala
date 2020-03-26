@@ -1,7 +1,7 @@
 package actors
 
 import actors.Client.{ChainInfoResponse, ClientReceivable}
-import actors.Server.{ChainPositionUpdate, RegisteredServer, ServerReceivable, TransferDatabase}
+import actors.Server.{ChainPositionUpdate, RegisteredServer, ServerReceivable, StartNewTailProcess}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import communication.JsonSerializable
@@ -38,9 +38,10 @@ object MasterService {
             // Add head to chain initially.
             chain = chain :+ replyTo
         } else {
-            // Otherwise, new server is potential chain.
+            // Otherwise, new server is potential tail first.
+            context.log.info(s"MasterService: sending StartNewTailProcess to ${replyTo}")
             potentialTails = potentialTails :+ replyTo
-            chain.last ! TransferDatabase(replyTo)
+            chain.last ! StartNewTailProcess(replyTo)
         }
 
         replyTo ! RegisteredServer(context.self)

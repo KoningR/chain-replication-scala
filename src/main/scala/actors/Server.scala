@@ -12,25 +12,15 @@ import storage.Storage
 object Server {
 
     sealed trait ServerReceivable extends JsonSerializable
-
     final case class InitServer(remoteMasterServicePath: String) extends ServerReceivable
-
     final case class Query(objId: Int, options: Option[List[String]], from: ActorRef[ClientReceivable]) extends ServerReceivable
-
     final case class Update(objId: Int, newObj: String, options: Option[List[String]], from: ActorRef[ClientReceivable], previous: ActorRef[ServerReceivable]) extends ServerReceivable
-
     final case class UpdateAcknowledgement(objId: Int, newObj: String, next: ActorRef[ServerReceivable]) extends ServerReceivable
-
     final case class RegisteredServer(masterService: ActorRef[MasterServiceReceivable]) extends ServerReceivable
-
-    final case class TransferDatabase(newTail: ActorRef[ServerReceivable]) extends ServerReceivable
-
+    final case class StartNewTailProcess(newTail: ActorRef[ServerReceivable]) extends ServerReceivable
     final case class TransferUpdate(objId: Int, obj: String, replyTo: ActorRef[ServerReceivable]) extends ServerReceivable
-
-    final case class TransferAck(objId: Int) extends ServerReceivable
-
+    final case class TransferAck(objId: Int, obj: String) extends ServerReceivable
     final case class TransferComplete() extends ServerReceivable
-
     final case class ChainPositionUpdate(isHead: Boolean,
                                          isTail: Boolean,
                                          previous: ActorRef[ServerReceivable],
@@ -49,69 +39,88 @@ object Server {
 
     private var newTailProcess = false
     private var newTail: ActorRef[Server.ServerReceivable] = _
-    private var unSentDatabase: List[(Int, String)] = List()
-
+    private var unSentToNewTail: List[(Int, String)] = List()
 
     def apply(): Behavior[ServerReceivable] = Behaviors.receive {
         (context, message) =>
             message match {
                 case InitServer(remoteMasterServicePath) => initServer(context, message, remoteMasterServicePath)
                 case RegisteredServer(masterService) => registeredServer(context, message, masterService)
-                case Update(objId, newObj, options, from, self) => {
+                case Update(objId, newObj, options, from, self) =>
                     if (!this.isTail) {
                         inProcess = Update(objId, newObj, options, from, next) :: inProcess
                     }
                     update(context, message, objId, newObj, options, from)
-                }
-                case UpdateAcknowledgement(objId, newObj, next) => {
+                case UpdateAcknowledgement(objId, newObj, next) =>
                     processAcknowledgement(UpdateAcknowledgement(objId, newObj, next), context.self)
-                }
                 case Query(objId, options, from) => query(context, message, objId, options, from)
                 case ChainPositionUpdate(isHead, isTail, previous, next) => chainPositionUpdate(context, message, isHead, isTail, previous, next)
-                case TransferDatabase(newTail) => initTransferDatabase(newTail, context)
-                case TransferUpdate(objId, obj, replyTo) => transferUpdate(objId, obj, replyTo)
-                case TransferAck(objId) => transferAck(objId, context)
+                case StartNewTailProcess(newTail) => startNewTailProcess(context, newTail)
+                case TransferUpdate(objId, obj, replyTo) => transferUpdate(context, objId, obj, replyTo)
+                case TransferAck(objId, obj) => transferAck(context, objId, obj)
                 case TransferComplete() => transferComplete(context)
             }
     }
 
-    def initTransferDatabase(newTail: ActorRef[Server.ServerReceivable], context: ActorContext[ServerReceivable]): Behavior[ServerReceivable] = {
+    def startNewTailProcess(context: ActorContext[ServerReceivable], newTail: ActorRef[ServerReceivable]): Behavior[ServerReceivable] = {
+        context.log.info(s"Server: received start new tail process")
 
         this.newTailProcess = true
         this.newTail = newTail
 
-        unSentDatabase = storage.getAllObjects
+        // Retrieve all objects from database.
+        unSentToNewTail = storage.getAllObjects
 
-        newTail ! TransferUpdate(unSentDatabase.head._1, unSentDatabase.head._2, context.self)
-        Behaviors.same
+        // Send the first object from the list.
+        val itemToSend = unSentToNewTail.head
+        context.log.info(s"Server: sending transfer update ${itemToSend._1}")
+        newTail ! TransferUpdate(itemToSend._1, itemToSend._2, context.self)
 
-    }
-
-    def transferUpdate(i: Int, str: String, replyTo: ActorRef[Server.ServerReceivable]): Behavior[ServerReceivable] = {
-        storage.update(i, str, None)
-        replyTo ! TransferAck(i)
         Behaviors.same
     }
 
-    def transferAck(objId: Int, context: ActorContext[ServerReceivable]): Behavior[ServerReceivable] = {
-        if (unSentDatabase.nonEmpty) {
-            unSentDatabase = unSentDatabase.drop(1)
-            newTail ! TransferUpdate(unSentDatabase.head._1, unSentDatabase.head._2, context.self)
-        } else {
+    def transferAck(context: ActorContext[ServerReceivable], objId: Int, obj: String): Behavior[ServerReceivable] = {
+        context.log.info(s"Server: received ack for ${objId}")
+
+        // Received the ack, so remove the item from the list.
+        unSentToNewTail = unSentToNewTail.drop(1)
+
+        if (unSentToNewTail.isEmpty) {
+            context.log.info(s"Server: all items were sent to new tail.")
+            // All items are sent, inform new tail it is complete.
             newTail ! TransferComplete()
 
-            // TODO: do this in a smarter way.
-            inProcess.foreach(x => {
-                newTail ! x
-            })
+            // Send the in process messages to the new tail.
+            inProcess.foreach(newTail ! _)
 
-            // TODO: reset! newTailProcess/newTail
+            // Reset the variables, since we know we are not tail anymore.
+            newTail = null
+            newTailProcess = false
+        } else {
+            // Not all items are sent, send more.
+            val itemToSend = unSentToNewTail.head
+            context.log.info(s"Server: sending next item ${itemToSend._1} to new tail.")
+            newTail ! TransferUpdate(itemToSend._1, itemToSend._2, context.self)
         }
 
         Behaviors.same
     }
 
+    def transferUpdate(context: ActorContext[ServerReceivable], objId: Int, obj: String, replyTo: ActorRef[ServerReceivable]): Behavior[ServerReceivable] = {
+        context.log.info(s"Server: received transfer update for ${objId}, sending ack back to ${replyTo}")
+
+        // Storing the change in storage.
+        storage.update(objId, obj, None)
+
+        // Replying with ack.
+        replyTo ! TransferAck(objId, obj)
+
+        Behaviors.same
+    }
+
     def transferComplete(context: ActorContext[ServerReceivable]): Behavior[ServerReceivable] = {
+        context.log.info(s"Server: full transfer complete, will re-brand as the new tail and inform master.")
+
         masterService ! RegisterTail(context.self)
         Behaviors.same
     }
@@ -162,24 +171,23 @@ object Server {
 
     def update(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, newObj: String, options: Option[List[String]], from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
         val result = storage.update(objId, newObj, options)
-        result match {
-            case Some(res) =>
-                if (this.isTail) {
-                    from ! UpdateResponse(objId, res)
-                    this.previous ! UpdateAcknowledgement(objId, res, context.self)
 
+        result match {
+            case Some(newObj) =>
+                if (this.isTail) {
                     if (newTailProcess) {
-                        context.log.info("Server: add to inProcessForNewTail for objId {} = {} as {}.", objId, res, context.self)
-                        inProcess = Update(objId, res, options, from, this.next) :: inProcess
+                        context.log.info(s"Server: add ${objId} update to inProcess, to later send to new tail.")
+                        inProcess = Update(objId, newObj, options, from, this.next) :: inProcess
                     }
 
-                    context.log.info("Server: sent a update response for objId {} = {} as {}.", objId, res, context.self)
+                    from ! UpdateResponse(objId, newObj)
+                    this.previous ! UpdateAcknowledgement(objId, newObj, context.self)
+                    context.log.info("Server: sent a update response for objId {} = {} as {}.", objId, newObj, context.self)
                 } else {
-                    context.log.info("Server: forward a update response for objId {} = {} as {} to {}.", objId, res, context.self, this.next)
-                    this.next ! Update(objId, res, options, from, this.next)
+                    this.next ! Update(objId, newObj, options, from, this.next)
+                    context.log.info("Server: forward a update response for objId {} = {} as {} to {}.", objId, newObj, context.self, this.next)
                 }
-            case None =>
-                context.log.info("Something went wrong while updating {}", objId)
+            case None => context.log.info("Something went wrong while updating {}", objId)
         }
 
         Behaviors.same
