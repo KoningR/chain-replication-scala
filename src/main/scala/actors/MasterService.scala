@@ -35,20 +35,10 @@ object MasterService {
     def initMasterService(context: ActorContext[MasterServiceReceivable], message: MasterServiceReceivable): Behavior[MasterServiceReceivable] = {
         context.log.info("MasterService: master service is initialized.")
 
-        context.system.scheduler.scheduleAtFixedRate(0.seconds, 10.seconds)(() => {
-            val toRemove = chain.filter(actorRef => {
-                val isActive = activeServers.get(actorRef)
-                isActive.contains(false)
-            })
-
-            if (toRemove.nonEmpty) {
-                removeServersFromChain(context, toRemove)
-            }
-
-            chain.foreach(actorRef => {
-                activeServers = activeServers.updated(actorRef, false)
-            })
-        })(ExecutionContexts.global())
+        // Remove inactive servers every 5 seconds
+        context.system.scheduler.scheduleAtFixedRate(0.seconds, 5.seconds)(
+            () => removeInactiveServers(context)
+        )(ExecutionContexts.global())
 
         Behaviors.same
     }
@@ -64,16 +54,6 @@ object MasterService {
         chain.zipWithIndex.foreach{ case (server, index) => chainPositionUpdate(context, server, index) }
 
         context.log.info("MasterService: received a register request from a server, sent response.")
-
-        Behaviors.same
-    }
-
-    def removeServersFromChain(context: ActorContext[MasterServiceReceivable], servers: List[ActorRef[ServerReceivable]]): Behavior[MasterServiceReceivable] = {
-        context.log.info("MasterService: Removing servers due to failing heartbeats. {}", servers)
-
-        chain = chain.filter(actorRef => !servers.contains(actorRef))
-        activeServers = activeServers.removedAll(servers)
-        chain.zipWithIndex.foreach{ case (server, index) => chainPositionUpdate(context, server, index) }
 
         Behaviors.same
     }
@@ -99,5 +79,27 @@ object MasterService {
         activeServers = activeServers.updated(replyTo, true)
 
         Behaviors.same
+    }
+
+    def removeInactiveServers(context: ActorContext[MasterServiceReceivable]): Unit = {
+        // Get all inactive servers
+        val toRemove = chain.filter(actorRef => {
+            val isActive = activeServers.get(actorRef)
+            isActive match {
+                case Some(true) => false
+                case _ => true
+            }
+        })
+
+        // Remove inactive servers from the chain and update all other servers
+        if (toRemove.nonEmpty) {
+            context.log.info("MasterService: Removing servers due to failing heartbeats. {}", toRemove)
+            chain = chain.filter(actorRef => !toRemove.contains(actorRef))
+            activeServers = activeServers.removedAll(toRemove)
+            chain.zipWithIndex.foreach{ case (server, index) => chainPositionUpdate(context, server, index) }
+        }
+
+        // Reset activeServers
+        activeServers = activeServers.empty
     }
 }
