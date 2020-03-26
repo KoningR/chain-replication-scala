@@ -5,7 +5,7 @@ import actors.Server.{Query, ServerReceivable, Update}
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
-import communication.JsonSerializable
+import communication.{JsonSerializable, SampleJSON}
 
 object Client {
 
@@ -61,13 +61,15 @@ object Client {
 
     def callQuery(context: ActorContext[ClientReceivable], message: ClientReceivable,
                   objId: Int, options: Option[List[String]]): Behavior[ClientReceivable] = {
-        this.head ! Query(objId, options, context.self)
+        println(s"Client: sending query to tail ${tail}")
+        this.tail ! Query(objId, options, context.self)
         Behaviors.same
     }
 
     def callUpdate(context: ActorContext[ClientReceivable], message: ClientReceivable,
                    objId: Int, newObj: String, options: Option[List[String]]): Behavior[ClientReceivable] = {
-        this.tail ! Update(objId, newObj, options, context.self)
+        println(s"Client: sending update to head ${head}")
+        this.head ! Update(objId, newObj, options, context.self, this.head)
         Behaviors.same
     }
 }

@@ -54,16 +54,14 @@ object MasterService {
     }
 
     def registerServer(context: ActorContext[MasterServiceReceivable], message: MasterServiceReceivable, replyTo: ActorRef[ServerReceivable]): Behavior[MasterServiceReceivable] = {
-        // Always add new server to the head of the chain
-        chain = replyTo :: chain
+        // Always add new server to the tail of the chain
+        chain = chain :+ replyTo
         activeServers = activeServers.updated(replyTo, true)
 
         replyTo ! RegisteredServer(context.self)
 
-        // Send chainPositionUpdate to the new server and the neighbor of the new server
-        // When the chain has < 2 elements, splitAt(2)._1 will create an empty list or a list with 1 item, so no errors
-        val (neighbours, _) = chain.splitAt(2)
-        neighbours.zipWithIndex.foreach{ case (server, index) => chainPositionUpdate(context, server, index) }
+        // Send chainPositionUpdate to all the servers in the chain
+        chain.zipWithIndex.foreach{ case (server, index) => chainPositionUpdate(context, server, index) }
 
         context.log.info("MasterService: received a register request from a server, sent response.")
 
@@ -71,7 +69,7 @@ object MasterService {
     }
 
     def removeServersFromChain(context: ActorContext[MasterServiceReceivable], servers: List[ActorRef[ServerReceivable]]): Behavior[MasterServiceReceivable] = {
-        context.log.info("MasterService: Removing a servers due to failed heartbeat. {}", servers)
+        context.log.info("MasterService: Removing servers due to failing heartbeats. {}", servers)
 
         chain = chain.filter(actorRef => !servers.contains(actorRef))
         chain.zipWithIndex.foreach{ case (server, index) => chainPositionUpdate(context, server, index) }
@@ -87,7 +85,7 @@ object MasterService {
     }
 
     def chainPositionUpdate(context: ActorContext[MasterServiceReceivable],
-                            server: ActorRef[ServerReceivable], index: Int): Unit = {
+                                 server: ActorRef[ServerReceivable], index: Int): Unit = {
         val isHead = index == 0
         val isTail = index == chain.length - 1
         val previous = chain(Math.max(index - 1, 0))
