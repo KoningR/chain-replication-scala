@@ -61,12 +61,14 @@ object Client {
 
     def callQuery(context: ActorContext[ClientReceivable], message: ClientReceivable,
                   objId: Int, options: Option[List[String]]): Behavior[ClientReceivable] = {
+        println(s"Client: sending query to tail ${tail}")
         this.tail ! Query(objId, options, context.self)
         Behaviors.same
     }
 
     def callUpdate(context: ActorContext[ClientReceivable], message: ClientReceivable,
                    objId: Int, newObj: String, options: Option[List[String]]): Behavior[ClientReceivable] = {
+        println(s"Client: sending update to head ${head}")
         this.head ! Update(objId, newObj, options, context.self, this.head)
         Behaviors.same
     }

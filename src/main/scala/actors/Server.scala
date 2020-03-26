@@ -107,8 +107,9 @@ object Server {
                 if (this.isTail) {
                     from ! UpdateResponse(objId, newObj)
                     this.previous ! UpdateAcknowledgement(objId, newObj, context.self)
-                    context.log.info("Server: sent a update response for objId {} = {} as {}.", objId, newObj, res)
+                    context.log.info("Server: sent a update response for objId {} = {} as {}.", objId, newObj, context.self)
                 } else {
+                    context.log.info("Server: forward a update response for objId {} = {} as {} to {}.", objId, newObj, context.self, this.next)
                     this.next ! Update(objId, newObj, options, from, this.next)
                 }
             case None =>
