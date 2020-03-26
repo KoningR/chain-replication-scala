@@ -30,15 +30,13 @@ object MasterService {
     }
 
     def registerServer(context: ActorContext[MasterServiceReceivable], message: MasterServiceReceivable, replyTo: ActorRef[ServerReceivable]): Behavior[MasterServiceReceivable] = {
-        // Always add new server to the head of the chain
-        chain = replyTo :: chain
+        // Always add new server to the tail of the chain
+        chain = chain :+ replyTo
 
         replyTo ! RegisteredServer(context.self)
 
-        // Send chainPositionUpdate to the new server and the neighbor of the new server
-        // When the chain has < 2 elements, splitAt(2)._1 will create an empty list or a list with 1 item, so no errors
-        val (neighbours, _) = chain.splitAt(2)
-        neighbours.zipWithIndex.foreach{ case (server, index) => chainPositionUpdate(context, server, index) }
+        // Send chainPositionUpdate to all the servers in the chain
+        chain.zipWithIndex.foreach{ case (server, index) => chainPositionUpdate(context, server, index) }
 
         context.log.info("MasterService: received a register request from a server, sent response.")
         Behaviors.same
