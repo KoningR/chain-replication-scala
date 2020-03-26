@@ -3,11 +3,10 @@ package initializers
 import actors.Server
 import actors.Server.InitServer
 import akka.NotUsed
+import akka.actor.typed.{Behavior, Terminated}
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorSystem, Behavior, Terminated}
-import com.typesafe.config.{ConfigFactory}
 
-object ServerInitializer {
+object ServerInitializerObject {
 
     final val MASTER_SERVICE_PATH: String = "akka://CRS@127.0.0.1:3000/user/CRS"
 
@@ -25,12 +24,5 @@ object ServerInitializer {
                 }
             }
         }
-
-    def main(args: Array[String]): Unit = {
-        val config = ConfigFactory.load()
-        ActorSystem(ServerInitializer(), "CRS", config.getConfig("server1").withFallback(config))
-        ActorSystem(ServerInitializer(), "CRS", config.getConfig("server2").withFallback(config))
-        ActorSystem(ServerInitializer(), "CRS", config.getConfig("server3").withFallback(config))
-    }
 
 }

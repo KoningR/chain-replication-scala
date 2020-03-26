@@ -76,6 +76,7 @@ object Server {
 
     def query(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, options: Option[List[String]], from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
         val result = storage.query(objId, options)
+        println(storage)
 
         result match {
             case Some(res) =>
@@ -90,6 +91,7 @@ object Server {
 
     def update(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, newObj: String, options: Option[List[String]], from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
         val result = storage.update(objId, newObj, options)
+        println(storage)
 
         result match {
             case Some(res) =>
