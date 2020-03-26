@@ -43,7 +43,9 @@ object Server {
                 case InitServer(remoteMasterServicePath) => initServer(context, message, remoteMasterServicePath)
                 case RegisteredServer(masterService) => registeredServer(context, message, masterService)
                 case Update(objId, newObj, options, from, self) => {
-                    inProcess = Update(objId, newObj, options, from, next) :: inProcess
+                    if(!this.isTail) {
+                        inProcess = Update(objId, newObj, options, from, next) :: inProcess
+                    }
                     update(context, message, objId, newObj, options, from)
                 }
                 case UpdateAcknowledgement(objId, newObj, next) => {
@@ -82,7 +84,6 @@ object Server {
         this.isTail = isTail
         this.previous = previous
         this.next = next
-        context.log.info("Am I the tail? {}", this.isTail)
         Behaviors.same
     }
 
@@ -106,10 +107,10 @@ object Server {
                 if (this.isTail) {
                     from ! UpdateResponse(objId, newObj)
                     this.previous ! UpdateAcknowledgement(objId, newObj, context.self)
+                    context.log.info("Server: sent a update response for objId {} = {} as {}.", objId, newObj, res)
                 } else {
                     this.next ! Update(objId, newObj, options, from, this.next)
                 }
-                context.log.info("Server: sent a update response for objId {} = {} as {}.", objId, newObj, res)
             case None =>
                 context.log.info("Something went wrong while updating {}", objId)
         }
