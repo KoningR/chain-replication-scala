@@ -19,6 +19,7 @@ object MasterService {
     final case class Heartbeat(server: ActorRef[ServerReceivable]) extends MasterServiceReceivable
 
     private var chain = List[ActorRef[ServerReceivable]]()
+    private var activeServers = Map[ActorRef[ServerReceivable], Boolean]()
 
     def apply(): Behavior[MasterServiceReceivable] = Behaviors.receive {
         (context, message) => {
@@ -26,22 +27,35 @@ object MasterService {
                 case InitMasterService() => initMasterService(context, message)
                 case RegisterServer(replyTo) => registerServer(context, message, replyTo)
                 case RequestChainInfo(replyTo) => requestChainInfo(context, message, replyTo)
-                case Heartbeat(replyTo) => {
-                    cancelAndStartHeartbeat(context, replyTo)
-                    Behaviors.same
-                }
+                case Heartbeat(replyTo) => heartbeat(context, message, replyTo)
             }
         }
     }
 
     def initMasterService(context: ActorContext[MasterServiceReceivable], message: MasterServiceReceivable): Behavior[MasterServiceReceivable] = {
         context.log.info("MasterService: master service is initialized.")
+
+        context.system.scheduler.scheduleAtFixedRate(0.seconds, 2.seconds)(() => {
+            chain.foreach(actorRef => {
+                val isActive = activeServers.get(actorRef)
+
+                isActive match {
+                    case Some(false) => removeServerFromChain(context, actorRef)
+                    case _ => None
+                }
+
+                // Reset all actors
+                activeServers = activeServers.updated(actorRef, false)
+            })
+        })(ExecutionContexts.global())
+
         Behaviors.same
     }
 
     def registerServer(context: ActorContext[MasterServiceReceivable], message: MasterServiceReceivable, replyTo: ActorRef[ServerReceivable]): Behavior[MasterServiceReceivable] = {
         // Always add new server to the head of the chain
         chain = replyTo :: chain
+        activeServers = activeServers.updated(replyTo, true)
 
         replyTo ! RegisteredServer(context.self)
 
@@ -52,12 +66,12 @@ object MasterService {
 
         context.log.info("MasterService: received a register request from a server, sent response.")
 
-        cancelAndStartHeartbeat(context, replyTo)
         Behaviors.same
     }
 
     def removeServerFromChain(context: ActorContext[MasterServiceReceivable], server: ActorRef[ServerReceivable]): Behavior[MasterServiceReceivable] = {
-        context.log.info("MasterService: Removing a server due to failed heartbeat.")
+        context.log.info("MasterService: Removing a server due to failed heartbeat. {}", server)
+
         Behaviors.same
     }
 
@@ -76,6 +90,12 @@ object MasterService {
         val next = chain(Math.min(index + 1, chain.length - 1))
         context.log.info("MasterService sent {} chain position: isHead: {}, isTail: {}, previous: {} and next: {}", server, isHead, isTail, previous, next)
         server ! ChainPositionUpdate(isHead, isTail, previous, next)
+    }
+
+    def heartbeat(value: ActorContext[MasterServiceReceivable], receivable: MasterServiceReceivable, replyTo: ActorRef[Server.ServerReceivable]): Behavior[MasterServiceReceivable] = {
+        activeServers = activeServers.updated(replyTo, true)
+
+        Behaviors.same
     }
 
     def cancelAndStartHeartbeat(context: ActorContext[MasterServiceReceivable], replyTo: ActorRef[ServerReceivable]): Unit = {
