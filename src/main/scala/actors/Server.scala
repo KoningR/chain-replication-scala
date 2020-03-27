@@ -2,6 +2,7 @@ package actors
 
 import actors.Client.{ClientReceivable, QueryResponse, UpdateResponse}
 import actors.MasterService.{Heartbeat, MasterServiceReceivable, RegisterServer, RegisterTail}
+import actors.Server.unSentToNewTail
 import akka.actor.ActorSelection
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
@@ -74,10 +75,7 @@ object Server {
         // Retrieve all objects from database.
         unSentToNewTail = storage.getAllObjects
 
-        // Send the first object from the list.
-        val itemToSend = unSentToNewTail.head
-        context.log.info(s"Server: sending transfer update ${itemToSend._1}")
-        newTail ! TransferUpdate(itemToSend._1, itemToSend._2, context.self)
+        transferUnsentUpdatesToNewTail(context, unSentToNewTail)
 
         Behaviors.same
     }
@@ -88,7 +86,18 @@ object Server {
         // Received the ack, so remove the item from the list.
         unSentToNewTail = unSentToNewTail.drop(1)
 
-        if (unSentToNewTail.isEmpty) {
+        transferUnsentUpdatesToNewTail(context, unSentToNewTail)
+
+        Behaviors.same
+    }
+
+    def transferUnsentUpdatesToNewTail(context: ActorContext[ServerReceivable], unSentToNewTail: List[(Int, String)]): Unit = {
+        if (unSentToNewTail.nonEmpty) {
+            // Not all items are sent, send more.
+            val itemToSend = unSentToNewTail.head
+            context.log.info(s"Server: sending next item ${itemToSend._1} to new tail.")
+            newTail ! TransferUpdate(itemToSend._1, itemToSend._2, context.self)
+        } else {
             context.log.info(s"Server: all items were sent to new tail.")
             // All items are sent, inform new tail it is complete.
             newTail ! TransferComplete()
@@ -97,16 +106,9 @@ object Server {
             inProcess.foreach(newTail ! _)
 
             // Reset the variables, since we know we are not tail anymore.
-            newTail = null
-            newTailProcess = false
-        } else {
-            // Not all items are sent, send more.
-            val itemToSend = unSentToNewTail.head
-            context.log.info(s"Server: sending next item ${itemToSend._1} to new tail.")
-            newTail ! TransferUpdate(itemToSend._1, itemToSend._2, context.self)
+            this.newTail = null
+            this.newTailProcess = false
         }
-
-        Behaviors.same
     }
 
     def transferUpdate(context: ActorContext[ServerReceivable], objId: Int, obj: String, replyTo: ActorRef[ServerReceivable]): Behavior[ServerReceivable] = {
