@@ -12,7 +12,7 @@ object Client {
     sealed trait ClientReceivable extends JsonSerializable
     final case class InitClient(remoteMasterServicePath: String) extends ClientReceivable
     final case class ChainInfoResponse(head: ActorRef[ServerReceivable], tail: ActorRef[ServerReceivable]) extends ClientReceivable
-    final case class QueryResponse(objId: Int, queryResult: String) extends ClientReceivable
+    final case class QueryResponse(objId: Int, queryResult: Option[String]) extends ClientReceivable
     final case class UpdateResponse(objId: Int, newValue: String) extends ClientReceivable
     final case class CallQuery(objId: Int, options: Option[List[String]]) extends ClientReceivable
     final case class CallUpdate(objId: Int, newObj: String, options: Option[List[String]]) extends ClientReceivable
@@ -49,8 +49,11 @@ object Client {
         Behaviors.same
     }
 
-    def queryResponse(context: ActorContext[ClientReceivable], message: ClientReceivable, objId: Int, queryResult: String): Behavior[ClientReceivable] = {
-        context.log.info("Client: received a QueryResponse for objId {} = {}", objId, queryResult)
+    def queryResponse(context: ActorContext[ClientReceivable], message: ClientReceivable, objId: Int, queryResult: Option[String]): Behavior[ClientReceivable] = {
+        queryResult match {
+            case Some(value) => context.log.info("Client: received a QueryResponse for objId {} = {}", objId, value)
+            case None => context.log.info("Client: no result found for objId {}", objId)
+        }
         Behaviors.same
     }
 
