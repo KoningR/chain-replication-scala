@@ -74,10 +74,24 @@ object Server {
         // Retrieve all objects from database.
         unSentToNewTail = storage.getAllObjects
 
-        // Send the first object from the list.
-        val itemToSend = unSentToNewTail.head
-        context.log.info(s"Server: sending transfer update ${itemToSend._1}")
-        newTail ! TransferUpdate(itemToSend._1, itemToSend._2, context.self)
+        if (unSentToNewTail.nonEmpty) {
+            // Send the first object from the list.
+            val itemToSend = unSentToNewTail.head
+            context.log.info(s"Server: sending transfer update ${itemToSend._1}")
+            newTail ! TransferUpdate(itemToSend._1, itemToSend._2, context.self)
+        } else {
+            // There is nothing, so just send complete.
+            context.log.info(s"Server: all items were sent to new tail.")
+            // All items are sent, inform new tail it is complete.
+            newTail ! TransferComplete()
+
+            // Send the in process messages to the new tail.
+            inProcess.foreach(newTail ! _)
+
+            // Reset the variables, since we know we are not tail anymore.
+            this.newTail = null
+            newTailProcess = false
+        }
 
         Behaviors.same
     }
