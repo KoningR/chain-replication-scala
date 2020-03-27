@@ -174,13 +174,10 @@ object Server {
 
     def query(context: ActorContext[ServerReceivable], message: ServerReceivable, objId: Int, options: Option[List[String]], from: ActorRef[ClientReceivable]): Behavior[ServerReceivable] = {
         val result = storage.query(objId, options)
-        result match {
-            case Some(res) =>
-                from ! QueryResponse(objId, res)
-                context.log.info("Server: sent a query response for objId {} = {}.", objId, res)
-            case None =>
-                context.log.info("No result found for objId {}", objId)
-        }
+
+        from ! QueryResponse(objId, result)
+        context.log.info("Server: sent a query response for objId {} = {}.", objId, result)
+
         Behaviors.same
     }
 
