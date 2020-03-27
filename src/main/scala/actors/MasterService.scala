@@ -20,8 +20,8 @@ object MasterService {
     final case class Heartbeat(server: ActorRef[ServerReceivable]) extends MasterServiceReceivable
 
     private var chain = List[ActorRef[ServerReceivable]]()
+    private var clients = List[ActorRef[ClientReceivable]]()
     private var potentialTails = List[ActorRef[ServerReceivable]]()
-
     private var activeServers = Map[ActorRef[ServerReceivable], Boolean]()
 
     def apply(): Behavior[MasterServiceReceivable] = Behaviors.receive {
@@ -65,7 +65,6 @@ object MasterService {
         chain.zipWithIndex.foreach{ case (server, index) => chainPositionUpdate(context, server, index) }
 
         context.log.info("MasterService: received a register request from a server, sent response.")
-
         Behaviors.same
     }
 
@@ -86,7 +85,7 @@ object MasterService {
 
     def requestChainInfo(context: ActorContext[MasterServiceReceivable], message: MasterServiceReceivable, replyTo: ActorRef[ClientReceivable]): Behavior[MasterServiceReceivable] = {
         replyTo ! ChainInfoResponse(chain.head, chain.last)
-
+        clients = clients :+ replyTo
         context.log.info("MasterService: received a chain request from a client, sent info.")
         Behaviors.same
     }
@@ -99,6 +98,7 @@ object MasterService {
         val next = chain(Math.min(index + 1, chain.length - 1))
         context.log.info("MasterService sent {} chain position: isHead: {}, isTail: {}, previous: {} and next: {}", server, isHead, isTail, previous, next)
         server ! ChainPositionUpdate(isHead, isTail, previous, next)
+        updateKnownClients(context)
     }
 
     def heartbeat(value: ActorContext[MasterServiceReceivable], receivable: MasterServiceReceivable, replyTo: ActorRef[Server.ServerReceivable]): Behavior[MasterServiceReceivable] = {
@@ -127,4 +127,13 @@ object MasterService {
         // Reset activeServers
         activeServers = activeServers.empty
     }
+
+    def updateKnownClients(context: ActorContext[MasterServiceReceivable]): Behavior[MasterServiceReceivable] = {
+        clients.foreach(client => {
+            client ! ChainInfoResponse(chain.head, chain.last)
+        })
+        Behaviors.same
+    }
+
+
 }
