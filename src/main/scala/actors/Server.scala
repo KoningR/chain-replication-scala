@@ -69,6 +69,9 @@ object Server {
     def startNewTailProcess(context: ActorContext[ServerReceivable], newTail: ActorRef[ServerReceivable]): Behavior[ServerReceivable] = {
         context.log.info(s"Server: received start new tail process")
 
+        // TODO: remove this test delay
+        Thread.sleep(5000)
+
         this.newTailProcess = true
         this.newTail = newTail
 

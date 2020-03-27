@@ -56,7 +56,11 @@ object MasterService {
             // Otherwise, new server is potential tail first.
             context.log.info(s"MasterService: sending StartNewTailProcess to ${replyTo}")
             potentialTails = potentialTails :+ replyTo
-            chain.last ! StartNewTailProcess(replyTo)
+
+            // Start the new tail process only if there is one, the other ones will be handled once the first tail is confirmed
+            if (potentialTails.length == 1) {
+                chain.last ! StartNewTailProcess(replyTo)
+            }
         }
 
         replyTo ! RegisteredServer(context.self)
@@ -78,6 +82,12 @@ object MasterService {
 
         // Send chainPositionUpdate to all the servers in the chain
         chain.zipWithIndex.foreach{ case (server, index) => chainPositionUpdate(context, server, index) }
+
+        // Start new tail process if there are more potential tails
+        if (potentialTails.nonEmpty) {
+            context.log.info("MasterService: starting the tail process for the next potential chain in the list")
+            chain.last ! StartNewTailProcess(potentialTails.head)
+        }
 
         context.log.info("MasterService: registering tail, sent response.")
         Behaviors.same
