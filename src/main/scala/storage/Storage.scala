@@ -52,8 +52,6 @@ class Storage(val identifier: String) {
         jsonObject match {
             case Failure(_) => None
             case Success(jsonObject) =>
-//                println("Running UPDATE:")
-//                println(jsonObject)
                 // Get entry from storage source.
                 val databaseEntry = Await.result(storage.get(objectId), 5 seconds)
 
@@ -82,6 +80,10 @@ class Storage(val identifier: String) {
                 }
         }
 
+    }
 
+    def getAllObjects: List[(Int, String)] = {
+        val objects = Await.result(storage.getAllObjects, 20 seconds)
+        objects.toList
     }
 }

@@ -22,4 +22,12 @@ class InMemoryMapDatabase extends Database {
     }
 
     override def close(): Unit = {}
+
+    /**
+     * Gets all objects in the database.
+     *
+     * @return A Nil sequence when there are no objects in the database
+     *         otherwise, a sequence of (Int, String) pairs for (id, object)
+     */
+    override def getAllObjects: Future[Seq[(Int, String)]] = null
 }
