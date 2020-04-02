@@ -195,7 +195,7 @@ object Server {
 
                     from ! UpdateResponse(objId, newObj)
                     this.previous ! UpdateAcknowledgement(objId, newObj, context.self)
-                    context.log.info("Server: sent a update response for objId {} = {} as {}.", objId, newObj, context.self)
+//                    context.log.info("Server: sent a update response for objId {} = {} as {}.", objId, newObj, context.self)
                 } else {
                     this.next ! Update(objId, newObj, options, from, this.next)
                     context.log.info("Server: forward a update response for objId {} = {} as {} to {}.", objId, newObj, context.self, this.next)

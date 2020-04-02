@@ -6,6 +6,7 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import communication.{JsonSerializable, SampleJSON}
+import initializers.ClientInitializer
 
 object Client {
 
@@ -58,7 +59,16 @@ object Client {
     }
 
     def updateResponse(context: ActorContext[ClientReceivable], message: ClientReceivable, objId: Int, newValue: String): Behavior[ClientReceivable] = {
-        context.log.info("Client: received a UpdateResponse for objId {}, new value is {}", objId, newValue)
+//        context.log.info("Client: received a UpdateResponse for objId {}, new value is {}", objId, newValue)
+
+        if (objId == 1000) {
+            val end = System.currentTimeMillis()
+            println(end)
+            println(ClientInitializer.start)
+            val duration = end - ClientInitializer.start
+            context.log.info("Executing 1000 queries took: %d".format(duration))
+        }
+
         Behaviors.same
     }
 
