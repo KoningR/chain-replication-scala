@@ -71,7 +71,7 @@ object Server {
     def clearDatabase(context: ActorContext[ServerReceivable]): Behavior[ServerReceivable] = {
         storage.clear()
 
-        context.log.info(s"Server: received start new tail process")
+        context.log.info(s"Server: received request to clear database, will do so.")
         Behaviors.same
     }
 
