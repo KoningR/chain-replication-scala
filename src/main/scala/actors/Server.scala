@@ -25,6 +25,7 @@ object Server {
     final case class TransferUpdate(objId: Int, obj: String, replyTo: ActorRef[ServerReceivable]) extends ServerReceivable
     final case class TransferAck(objId: Int, obj: String) extends ServerReceivable
     final case class TransferComplete() extends ServerReceivable
+    final case class ClearDatabase() extends ServerReceivable
     final case class ChainPositionUpdate(isHead: Boolean,
                                          isTail: Boolean,
                                          previous: ActorRef[ServerReceivable],
@@ -63,7 +64,15 @@ object Server {
                 case TransferUpdate(objId, obj, replyTo) => transferUpdate(context, objId, obj, replyTo)
                 case TransferAck(objId, obj) => transferAck(context, objId, obj)
                 case TransferComplete() => transferComplete(context)
+                case ClearDatabase() => clearDatabase(context)
             }
+    }
+
+    def clearDatabase(context: ActorContext[ServerReceivable]): Behavior[ServerReceivable] = {
+        storage.clear()
+
+        context.log.info(s"Server: received start new tail process")
+        Behaviors.same
     }
 
     def startNewTailProcess(context: ActorContext[ServerReceivable], newTail: ActorRef[ServerReceivable]): Behavior[ServerReceivable] = {
@@ -195,7 +204,7 @@ object Server {
 
                     from ! UpdateResponse(objId, newObj)
                     this.previous ! UpdateAcknowledgement(objId, newObj, context.self)
-//                    context.log.info("Server: sent a update response for objId {} = {} as {}.", objId, newObj, context.self)
+                    context.log.info("Server: sent a update response for objId {} = {} as {}.", objId, newObj, context.self)
                 } else {
                     this.next ! Update(objId, newObj, options, from, this.next)
                     context.log.info("Server: forward a update response for objId {} = {} as {} to {}.", objId, newObj, context.self, this.next)
