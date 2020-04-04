@@ -8,6 +8,9 @@ import akka.actor.typed.{ActorRef, Behavior}
 import communication.{JsonSerializable, SampleJSON}
 import initializers.ClientInitializer
 
+import scala.collection.mutable
+import scala.util.Random
+
 object Client {
 
     sealed trait ClientReceivable extends JsonSerializable
@@ -17,9 +20,14 @@ object Client {
     final case class UpdateResponse(objId: Int, newValue: String) extends ClientReceivable
     final case class CallQuery(objId: Int, options: Option[List[String]]) extends ClientReceivable
     final case class CallUpdate(objId: Int, newObj: String, options: Option[List[String]]) extends ClientReceivable
+    final case class StressTest(totalMessages: Int, percentageUpdate: Int) extends ClientReceivable
 
     private var head: ActorRef[ServerReceivable] = _
     private var tail: ActorRef[ServerReceivable] = _
+
+    private var start: Long = 0
+    private var totalMessages: Int = Integer.MAX_VALUE
+    private var messagesReceived: Int = 0
 
     def apply(): Behavior[ClientReceivable] = Behaviors.receive {
         (context, message) => {
@@ -30,6 +38,8 @@ object Client {
                 case UpdateResponse(objId, newValue) => updateResponse(context, message, objId, newValue)
                 case CallQuery(objId, options) => callQuery(context, message, objId, options)
                 case CallUpdate(objId, newObj, options) => callUpdate(context, message, objId, newObj, options)
+                case StressTest(totalMessages, percentageUpdate) =>
+                    stressTest(context, message, totalMessages, percentageUpdate)
             }
         }
     }
@@ -55,18 +65,24 @@ object Client {
             case Some(value) => context.log.info("Client: received a QueryResponse for objId {} = {}", objId, value)
             case None => context.log.info("Client: no result found for objId {}", objId)
         }
+
+        this.messagesReceived += 1
+        if (this.messagesReceived >= this.totalMessages) {
+            val end = System.currentTimeMillis()
+            val duration = end - start
+            context.log.info(s"Executing $totalMessages queries took: %d".format(duration))
+        }
+
         Behaviors.same
     }
 
     def updateResponse(context: ActorContext[ClientReceivable], message: ClientReceivable, objId: Int, newValue: String): Behavior[ClientReceivable] = {
-//        context.log.info("Client: received a UpdateResponse for objId {}, new value is {}", objId, newValue)
 
-        if (objId == 1000) {
+        this.messagesReceived += 1
+        if (this.messagesReceived >= this.totalMessages) {
             val end = System.currentTimeMillis()
-            println(end)
-            println(ClientInitializer.start)
-            val duration = end - ClientInitializer.start
-            context.log.info("Executing 1000 queries took: %d".format(duration))
+            val duration = end - start
+            context.log.info(s"Executing $totalMessages queries took: %d".format(duration))
         }
 
         Behaviors.same
@@ -83,6 +99,35 @@ object Client {
                    objId: Int, newObj: String, options: Option[List[String]]): Behavior[ClientReceivable] = {
         println(s"Client: sending update to head ${head}")
         this.head ! Update(objId, newObj, options, context.self, this.head)
+        Behaviors.same
+    }
+
+    def stressTest(context: ActorContext[ClientReceivable], message: ClientReceivable,
+                   totalMessages: Int, percentageUpdate: Int): Behavior[ClientReceivable] = {
+
+        context.log.info(s"Stress test called with $totalMessages total messages and $percentageUpdate% update messages")
+
+        val messageQueue: mutable.Queue[ClientReceivable] = mutable.Queue()
+        for (i <- 1 to totalMessages) {
+            // Random value between 0 and 100
+            val r = new Random().nextInt(100)
+
+            if (r < percentageUpdate) {
+                val jsonObject = s"""{"$i": $i}"""
+                messageQueue.enqueue(CallUpdate(i, jsonObject, None))
+            } else {
+                messageQueue.enqueue(CallQuery(i, None))
+            }
+        }
+
+        this.start = System.currentTimeMillis()
+        this.totalMessages = totalMessages
+        this.messagesReceived = 0
+
+        for (message <- messageQueue) {
+            context.self ! message
+        }
+
         Behaviors.same
     }
 }

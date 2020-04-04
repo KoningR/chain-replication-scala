@@ -1,7 +1,7 @@
 package initializers
 
 import actors.Client
-import actors.Client.{CallQuery, CallUpdate, InitClient}
+import actors.Client.{CallQuery, CallUpdate, InitClient, StressTest}
 import akka.NotUsed
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, Terminated}
@@ -12,8 +12,6 @@ import scala.io.StdIn
 object ClientInitializer {
 
     final val MASTER_SERVICE_PATH: String = "akka://CRS@127.0.0.1:3000/user/CRS"
-
-    var start: Long = 0
 
     def query(input: String, client: ActorRef[Client.ClientReceivable]): Unit = {
         println("Query command called.")
@@ -53,12 +51,11 @@ object ClientInitializer {
     }
 
     def stressTest(client: ActorRef[Client.ClientReceivable], input: String): Unit = {
-        for(i <- 901 to 1001) {
-            val stressTestInput = """{"name": "Brian", "age": 21, "city": "Delft"}"""
-            client ! CallUpdate(i, stressTestInput, None)
+        val inputList: List[String] = input.split(" ").map(_.trim).filter(_.length > 0).toList
+        inputList match {
+            case _ :: totalMessages :: updatePercentage :: _ =>
+                client ! StressTest(totalMessages.toInt, updatePercentage.toInt)
         }
-
-        start = System.currentTimeMillis()
     }
 
     def apply(): Behavior[NotUsed] =
