@@ -5,8 +5,7 @@ import actors.Server.{Query, ServerReceivable, Update}
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
-import communication.{JsonSerializable, SampleJSON}
-import initializers.ClientInitializer
+import communication.JsonSerializable
 
 import scala.collection.mutable
 import scala.util.Random
@@ -66,38 +65,28 @@ object Client {
             case None => context.log.info("Client: no result found for objId {}", objId)
         }
 
-        this.messagesReceived += 1
-        if (this.messagesReceived >= this.totalMessages) {
-            val end = System.currentTimeMillis()
-            val duration = end - start
-            context.log.info(s"Executing $totalMessages queries took: %d".format(duration))
-        }
+        incrementMessage(context)
 
         Behaviors.same
     }
 
     def updateResponse(context: ActorContext[ClientReceivable], message: ClientReceivable, objId: Int, newValue: String): Behavior[ClientReceivable] = {
 
-        this.messagesReceived += 1
-        if (this.messagesReceived >= this.totalMessages) {
-            val end = System.currentTimeMillis()
-            val duration = end - start
-            context.log.info(s"Executing $totalMessages queries took: %d".format(duration))
-        }
+        incrementMessage(context)
 
         Behaviors.same
     }
 
     def callQuery(context: ActorContext[ClientReceivable], message: ClientReceivable,
                   objId: Int, options: Option[List[String]]): Behavior[ClientReceivable] = {
-        println(s"Client: sending query to tail ${tail}")
+        println(s"Client: sending query to tail $tail")
         this.tail ! Query(objId, options, context.self)
         Behaviors.same
     }
 
     def callUpdate(context: ActorContext[ClientReceivable], message: ClientReceivable,
                    objId: Int, newObj: String, options: Option[List[String]]): Behavior[ClientReceivable] = {
-        println(s"Client: sending update to head ${head}")
+        println(s"Client: sending update to head $head")
         this.head ! Update(objId, newObj, options, context.self, this.head)
         Behaviors.same
     }
@@ -112,6 +101,7 @@ object Client {
             // Random value between 0 and 100
             val r = new Random().nextInt(100)
 
+            // A percentage of the messages will be updates, and the rest will be queries.
             if (r < percentageUpdate) {
                 val jsonObject = s"""{"$i": $i}"""
                 messageQueue.enqueue(CallUpdate(i, jsonObject, None))
@@ -129,5 +119,16 @@ object Client {
         }
 
         Behaviors.same
+    }
+
+    private def incrementMessage(context: ActorContext[ClientReceivable]): Unit = {
+        this.messagesReceived += 1
+
+        // The totalMessages is only set to a relevant value after calling `stresstest` from the console.
+        if (this.messagesReceived >= this.totalMessages) {
+            val end = System.currentTimeMillis()
+            val duration = end - start
+            context.log.info(s"Executing $totalMessages queries took: %d".format(duration))
+        }
     }
 }
