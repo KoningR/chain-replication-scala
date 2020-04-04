@@ -1,7 +1,7 @@
 package actors
 
 import actors.Client.{ChainInfoResponse, ClientReceivable}
-import actors.Server.{ChainPositionUpdate, RegisteredServer, ServerReceivable, StartNewTailProcess}
+import actors.Server.{ChainPositionUpdate, ClearDatabase, RegisteredServer, ServerReceivable, StartNewTailProcess}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.dispatch.ExecutionContexts
@@ -18,6 +18,7 @@ object MasterService {
     final case class RegisterTail(replyTo: ActorRef[ServerReceivable]) extends MasterServiceReceivable
     final case class Remove(server: ActorRef[ServerReceivable]) extends MasterServiceReceivable
     final case class Heartbeat(server: ActorRef[ServerReceivable]) extends MasterServiceReceivable
+    final case class BroadCastClearDatabases() extends MasterServiceReceivable
 
     private var chain = List[ActorRef[ServerReceivable]]()
     private var clients = List[ActorRef[ClientReceivable]]()
@@ -32,8 +33,17 @@ object MasterService {
                 case RequestChainInfo(replyTo) => requestChainInfo(context, message, replyTo)
                 case RegisterTail(replyTo) => registerTail(context, replyTo)
                 case Heartbeat(replyTo) => heartbeat(context, message, replyTo)
+                case BroadCastClearDatabases() => broadCastClearDatabases(context)
             }
         }
+    }
+
+    def broadCastClearDatabases(context: ActorContext[MasterServiceReceivable]): Behavior[MasterServiceReceivable] = {
+        context.log.info("MasterService: master service will send broadcast clear to all servers.")
+        chain.foreach(chain => {
+            chain ! ClearDatabase()
+        })
+        Behaviors.same
     }
 
     def initMasterService(context: ActorContext[MasterServiceReceivable], message: MasterServiceReceivable): Behavior[MasterServiceReceivable] = {

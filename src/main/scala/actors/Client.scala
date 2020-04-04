@@ -1,7 +1,8 @@
 package actors
 
-import actors.MasterService.RequestChainInfo
+import actors.MasterService.{BroadCastClearDatabases, RequestChainInfo}
 import actors.Server.{Query, ServerReceivable, Update}
+import akka.actor.ActorSelection
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
@@ -20,6 +21,8 @@ object Client {
     final case class CallQuery(objId: Int, options: Option[List[String]]) extends ClientReceivable
     final case class CallUpdate(objId: Int, newObj: String, options: Option[List[String]]) extends ClientReceivable
     final case class StressTest(totalMessages: Int, percentageUpdate: Int) extends ClientReceivable
+
+    private var masterService: ActorSelection = _
 
     private var head: ActorRef[ServerReceivable] = _
     private var tail: ActorRef[ServerReceivable] = _
@@ -44,7 +47,7 @@ object Client {
     }
 
     def initClient(context: ActorContext[ClientReceivable], message: ClientReceivable, remoteMasterServicePath: String): Behavior[ClientReceivable] = {
-        val masterService = context.toClassic.actorSelection(remoteMasterServicePath)
+        masterService = context.toClassic.actorSelection(remoteMasterServicePath)
         masterService ! RequestChainInfo(context.self)
 
         context.log.info("Client: will try to get the chain's head and tail from the masterService {}.", masterService.pathString)
@@ -117,6 +120,8 @@ object Client {
         for (message <- messageQueue) {
             context.self ! message
         }
+
+        masterService ! BroadCastClearDatabases()
 
         Behaviors.same
     }
