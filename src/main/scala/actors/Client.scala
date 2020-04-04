@@ -121,8 +121,6 @@ object Client {
             context.self ! message
         }
 
-        masterService ! BroadCastClearDatabases()
-
         Behaviors.same
     }
 
@@ -134,6 +132,7 @@ object Client {
             val end = System.currentTimeMillis()
             val duration = end - start
             context.log.info(s"Executing $totalMessages queries took: %d".format(duration))
+            masterService ! BroadCastClearDatabases()
         }
     }
 }
