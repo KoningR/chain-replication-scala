@@ -30,4 +30,6 @@ class InMemoryMapDatabase extends Database {
      *         otherwise, a sequence of (Int, String) pairs for (id, object)
      */
     override def getAllObjects: Future[Seq[(Int, String)]] = null
+
+    override def clear(): Unit = storage = Map()
 }

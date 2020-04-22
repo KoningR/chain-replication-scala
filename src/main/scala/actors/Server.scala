@@ -25,6 +25,7 @@ object Server {
     final case class TransferUpdate(objId: Int, obj: String, replyTo: ActorRef[ServerReceivable]) extends ServerReceivable
     final case class TransferAck(objId: Int, obj: String) extends ServerReceivable
     final case class TransferComplete() extends ServerReceivable
+    final case class ClearDatabase() extends ServerReceivable
     final case class ChainPositionUpdate(isHead: Boolean,
                                          isTail: Boolean,
                                          previous: ActorRef[ServerReceivable],
@@ -63,7 +64,15 @@ object Server {
                 case TransferUpdate(objId, obj, replyTo) => transferUpdate(context, objId, obj, replyTo)
                 case TransferAck(objId, obj) => transferAck(context, objId, obj)
                 case TransferComplete() => transferComplete(context)
+                case ClearDatabase() => clearDatabase(context)
             }
+    }
+
+    def clearDatabase(context: ActorContext[ServerReceivable]): Behavior[ServerReceivable] = {
+        storage.clear()
+
+        context.log.info(s"Server: received request to clear database, will do so.")
+        Behaviors.same
     }
 
     def startNewTailProcess(context: ActorContext[ServerReceivable], newTail: ActorRef[ServerReceivable]): Behavior[ServerReceivable] = {

@@ -64,4 +64,9 @@ class SQLiteDatabase(fileName: String) extends Database {
     }
 
     override def close(): Unit = db.close()
+
+    def clear(): Unit = {
+        val action = objects.delete
+        db.run(action)
+    }
 }

@@ -86,4 +86,8 @@ class Storage(val identifier: String) {
         val objects = Await.result(storage.getAllObjects, 20 seconds)
         objects.toList
     }
+
+    def clear(): Unit = {
+        storage.clear()
+    }
 }
